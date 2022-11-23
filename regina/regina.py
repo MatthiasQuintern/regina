@@ -32,6 +32,7 @@ settings = {
     # "plot_figsize": (60, 40),
     "plot_dpi": 300,
     "img_dir": "",
+    "img_location": "",
     "img_filetype": "svg",
     "template_html": "",
     "html_out_path": "",

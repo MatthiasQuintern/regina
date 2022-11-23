@@ -374,17 +374,17 @@ def visualize(loaded_settings: dict):
     img_filetype = settings["img_filetype"]
     names = {
         # paths
-        "img_file_ranking_last_x_days": f"{img_dir}/ranking_all_time_files_last_x_days.{img_filetype}",
-        "img_referer_ranking_last_x_days": f"{img_dir}/ranking_all_time_referers_last_x_days.{img_filetype}",
-        "img_browser_ranking_last_x_days": f"{img_dir}/ranking_all_time_browsers_last_x_days.{img_filetype}",
-        "img_operating_system_ranking_last_x_days": f"{img_dir}/ranking_all_time_operating_systems_last_x_days.{img_filetype}",
-        "img_users_and_requests_last_x_days": f"{img_dir}/user_request_count_daily_last_x_days.{img_filetype}",
+        "img_file_ranking_last_x_days": f"ranking_all_time_files_last_x_days.{img_filetype}",
+        "img_referer_ranking_last_x_days": f"ranking_all_time_referers_last_x_days.{img_filetype}",
+        "img_browser_ranking_last_x_days": f"ranking_all_time_browsers_last_x_days.{img_filetype}",
+        "img_operating_system_ranking_last_x_days": f"ranking_all_time_operating_systems_last_x_days.{img_filetype}",
+        "img_users_and_requests_last_x_days": f"user_request_count_daily_last_x_days.{img_filetype}",
 
-        "img_file_ranking_total": f"{img_dir}/ranking_all_time_files_total.{img_filetype}",
-        "img_referer_ranking_total": f"{img_dir}/ranking_all_time_referers_total.{img_filetype}",
-        "img_browser_ranking_total": f"{img_dir}/ranking_all_time_browsers_total.{img_filetype}",
-        "img_operating_system_ranking_total": f"{img_dir}/ranking_all_time_operating_systems_total.{img_filetype}",
-        "img_users_and_requests_total": f"{img_dir}/user_request_count_daily_total.{img_filetype}",
+        "img_file_ranking_total": f"ranking_all_time_files_total.{img_filetype}",
+        "img_referer_ranking_total": f"ranking_all_time_referers_total.{img_filetype}",
+        "img_browser_ranking_total": f"ranking_all_time_browsers_total.{img_filetype}",
+        "img_operating_system_ranking_total": f"ranking_all_time_operating_systems_total.{img_filetype}",
+        "img_users_and_requests_total": f"user_request_count_daily_total.{img_filetype}",
         # values
         "mobile_user_percentage_total": 0.0,
         "mobile_user_percentage_last_x_days": 0.0,
@@ -453,13 +453,13 @@ def visualize(loaded_settings: dict):
         file_ranking = get_file_ranking(cur, date_str)
         if gen_img:
             fig_file_ranking = plot_ranking(file_ranking, xlabel="Filename/Filegroup", ylabel="Number of requests", color_settings=color_settings_filetypes)
-            fig_file_ranking.savefig(names[f'img_file_ranking{suffix}'])
+            fig_file_ranking.savefig(f"{img_dir}/{names[f'img_file_ranking{suffix}']}")
 
         # REFERER
         referer_ranking = get_ranking("referer", t_request, settings["referer_ranking_regex_whitelist"], cur, date_str)
         if gen_img:
             fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate)
-            fig_referer_ranking.savefig(names[f'img_referer_ranking{suffix}'])
+            fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_referer_ranking{suffix}']}")
 
         # USER
         # user_agent_ranking = get_user_agent_ranking(cur, date_str)
@@ -492,15 +492,15 @@ def visualize(loaded_settings: dict):
             fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"])
             if get_humans:
                 fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", ylabel2="Einzigartige Anfragen", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots)
-            fig_daily.savefig(names[f"img_users_and_requests{suffix}"])
+            fig_daily.savefig(f"{img_dir}{names[f'img_users_and_requests{suffix}']}")
 
         # os & browser
         os_ranking, browser_ranking, names[f"mobile_user_percentage{suffix}"] = get_os_browser_mobile_rankings(cur, unique_user_ids_human)
         if gen_img:
             fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems)
-            fig_os_rating.savefig(names[f"img_operating_system_ranking{suffix}"])
+            fig_os_rating.savefig(f"{img_dir}{names[f'img_operating_system_ranking{suffix}']}")
             fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browsers", ylabel="Share [%]", color_settings=color_settings_browsers)
-            fig_browser_rating.savefig(names[f"img_browser_ranking{suffix}"])
+            fig_browser_rating.savefig(f"{img_dir}/{names[f'img_browser_ranking{suffix}']}")
 
         # print("File Ranking", file_ranking)
         # print("referer Ranking", referer_ranking)
@@ -516,6 +516,8 @@ def visualize(loaded_settings: dict):
         with open(settings["template_html"], "r") as file:
             html = file.read()
         for name, value in names.items():
+            if "img" in name:
+                value = f"{img_location}/{value}"
             html = html.replace(f"%{name}", str(value))
         with open(settings["html_out_path"], "w") as file:
             file.write(html)

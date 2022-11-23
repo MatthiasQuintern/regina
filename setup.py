@@ -14,6 +14,7 @@ setup(
 
         packages=["regina"],
         install_requires=[],
+        python_requires='>=3.10',
 
         classifiers=[
             "Operating System :: POSIX :: Linux",

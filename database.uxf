@@ -1,104 +1,108 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <diagram program="umlet" version="15.0.0">
-  <zoom_level>19</zoom_level>
+  <zoom_level>13</zoom_level>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>133</x>
-      <y>247</y>
-      <w>342</w>
-      <h>266</h>
+      <x>364</x>
+      <y>273</y>
+      <w>299</w>
+      <h>208</h>
     </coordinates>
     <panel_attributes>User
 --
-&lt;&lt;PK&gt;&gt;- user_id
+&lt;&lt;PK&gt;&gt;
+- user_id: INTEGER
 --
-- ip address
-- user agent string
-- platform
-- browser
-- mobile
+- ip address: TEXT
+- user agent string: TEXT
+- platform: TEXT
+- browser: TEXT
+- mobile: INTEGER
 style=autoresize</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>1159</x>
-      <y>247</y>
-      <w>247</w>
-      <h>152</h>
+      <x>1092</x>
+      <y>273</y>
+      <w>234</w>
+      <h>130</h>
     </coordinates>
     <panel_attributes>FileGroup
 --
-&lt;&lt;PK&gt;&gt;- group_id
+&lt;&lt;PK&gt;&gt;
+- group_id: INTEGER
 --
-- group_name
+- group_name: TEXT
 style=autoresize</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>969</x>
-      <y>247</y>
-      <w>228</w>
-      <h>95</h>
+      <x>988</x>
+      <y>273</y>
+      <w>130</w>
+      <h>65</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
 m2=1
 </panel_attributes>
-    <additional_attributes>10.0;20.0;100.0;20.0</additional_attributes>
+    <additional_attributes>10.0;20.0;80.0;20.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>703</x>
-      <y>228</y>
-      <w>285</w>
-      <h>285</h>
+      <x>754</x>
+      <y>260</y>
+      <w>247</w>
+      <h>221</h>
     </coordinates>
     <panel_attributes>Request
 --
-&lt;&lt;PK&gt;&gt;- request_id
+&lt;&lt;PK&gt;&gt;
+- request_id: INTEGER
 --
-- user_id
-- file name
+- user_id: INTEGER
+- group_id: INTEGER
 --
-- date
-- referer
-- status
+- date: TEXT
+- referer: TEXT
+- status: INTEGER
 style=autoresize</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>456</x>
-      <y>247</y>
-      <w>285</w>
-      <h>95</h>
+      <x>650</x>
+      <y>273</y>
+      <w>130</w>
+      <h>65</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=1
 m2=n
 </panel_attributes>
-    <additional_attributes>10.0;20.0;130.0;20.0</additional_attributes>
+    <additional_attributes>10.0;20.0;80.0;20.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>1159</x>
-      <y>646</y>
-      <w>190</w>
-      <h>152</h>
+      <x>1092</x>
+      <y>546</y>
+      <w>234</w>
+      <h>130</h>
     </coordinates>
     <panel_attributes>File
 --
-&lt;&lt;PK&gt;&gt;- name
+&lt;&lt;PK&gt;&gt;
+- name: TEXT
 --
-- group_id
+- group_id: INTEGER
 --
 style=autoresize</panel_attributes>
     <additional_attributes/>
@@ -106,24 +110,24 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1216</x>
-      <y>380</y>
-      <w>76</w>
-      <h>304</h>
+      <x>1131</x>
+      <y>390</y>
+      <w>52</w>
+      <h>182</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
 m2=1
 </panel_attributes>
-    <additional_attributes>10.0;140.0;10.0;10.0</additional_attributes>
+    <additional_attributes>10.0;120.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>UMLNote</id>
     <coordinates>
-      <x>874</x>
-      <y>19</y>
-      <w>570</w>
-      <h>133</h>
+      <x>897</x>
+      <y>117</y>
+      <w>390</w>
+      <h>91</h>
     </coordinates>
     <panel_attributes>One group contains multiple files.
 Lets you group the images from a 
@@ -134,10 +138,10 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1178</x>
-      <y>133</y>
-      <w>57</w>
-      <h>152</h>
+      <x>1105</x>
+      <y>195</y>
+      <w>39</w>
+      <h>104</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>10.0;60.0;10.0;10.0</additional_attributes>
