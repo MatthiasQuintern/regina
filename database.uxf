@@ -4,10 +4,10 @@
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>38</x>
-      <y>323</y>
+      <x>133</x>
+      <y>247</y>
       <w>342</w>
-      <h>190</h>
+      <h>266</h>
     </coordinates>
     <panel_attributes>User
 --
@@ -15,14 +15,17 @@
 --
 - ip address
 - user agent string
+- platform
+- browser
+- mobile
 style=autoresize</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>1064</x>
-      <y>323</y>
+      <x>1159</x>
+      <y>247</y>
       <w>247</w>
       <h>152</h>
     </coordinates>
@@ -37,8 +40,8 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>874</x>
-      <y>323</y>
+      <x>969</x>
+      <y>247</y>
       <w>228</w>
       <h>95</h>
     </coordinates>
@@ -51,8 +54,8 @@ m2=1
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>608</x>
-      <y>304</y>
+      <x>703</x>
+      <y>228</y>
       <w>285</w>
       <h>285</h>
     </coordinates>
@@ -72,8 +75,8 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>361</x>
-      <y>323</y>
+      <x>456</x>
+      <y>247</y>
       <w>285</w>
       <h>95</h>
     </coordinates>
@@ -86,8 +89,8 @@ m2=n
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>1064</x>
-      <y>722</y>
+      <x>1159</x>
+      <y>646</y>
       <w>190</w>
       <h>152</h>
     </coordinates>
@@ -103,8 +106,8 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1121</x>
-      <y>456</y>
+      <x>1216</x>
+      <y>380</y>
       <w>76</w>
       <h>304</h>
     </coordinates>
@@ -117,8 +120,8 @@ m2=1
   <element>
     <id>UMLNote</id>
     <coordinates>
-      <x>779</x>
-      <y>95</y>
+      <x>874</x>
+      <y>19</y>
       <w>570</w>
       <h>133</h>
     </coordinates>
@@ -131,8 +134,8 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1083</x>
-      <y>209</y>
+      <x>1178</x>
+      <y>133</y>
       <w>57</w>
       <h>152</h>
     </coordinates>

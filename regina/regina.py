@@ -6,6 +6,10 @@ from os.path import isfile, isdir
 from visualize import visualize
 from settings_manager import read_settings_file
 
+"""
+start regina, launch either collect or visualize
+"""
+
 version = "1.0"
 
 # default settings, these are overwriteable through a config file
@@ -75,7 +79,6 @@ if __name__ == '__main__':
             exit(0)
         elif argv[i] == "--collect":
             collect = True
-            exit(0)
         elif argv[i] == "--visualize":
             visualize_ = True
         else:
@@ -90,19 +93,20 @@ if __name__ == '__main__':
         error(f"Not a file: '{config_file}'")
     read_settings_file(config_file, settings)
     settings["version"] = version
+    print(f"regina version {version} with server-name '{settings['server-name']}' and database '{settings['db']}'")
 
     if not settings["server-name"]: missing_arg("server-name")
     if not settings["access-log"]: missing_arg("log")
     if not settings["db"]: missing_arg("db")
-    if type(settings["auto-group-filetypes"]) == str:
+    if isinstance(settings["auto-group-filetypes"], str):
         settings["auto-group-filetypes"] = settings["auto-group-filetypes"].split(",")
-    if type(settings["locs-and-dirs"]) == str:
+    if isinstance(settings["locs-and-dirs"], str):
         settings["locs-and-dirs"] = [ loc_and_dir.split(":") for loc_and_dir in settings["locs-and-dirs"].split(",") ]
     if collect:
         if not isfile(settings["db"]):
             create_db(settings["db"], settings["filegroups"], settings["locs-and-dirs"], settings["auto-group-filetypes"])
         requests = parse_log(settings["access-log"])
         add_requests_to_db(requests, settings["db"])
-    if visualize:
+    if visualize_:
         if not isfile(settings["db"]): error(f"Invalid database path: '{settings['db']}'")
         visualize(settings)

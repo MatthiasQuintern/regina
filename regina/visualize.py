@@ -6,7 +6,9 @@ from re import fullmatch, findall
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from os.path import isdir
+from datetime import datetime as dt
 """
+visualize information from the databse
 TODO:
 - bei referrers &auml;hnliche zusammenlegen, z.b. www.google.de und https://google.com
 """
@@ -29,10 +31,6 @@ color_settings_filetypes = {
 }
 color_settings_alternate = list(palette.values())
 
-# these oses and browser can be detected:
-# lower element takes precedence
-user_agent_operating_systems = ["Windows", "Android", "Linux", "iPhone", "iPad", "Mac", "BSD"]
-user_agent_browsers = ["Firefox", "DuckDuckGo", "SeaMonkey", "Vivaldi", "Yandex", "Brave", "SamsungBrowser", "Lynx", "Epiphany", "Chromium", "Chrome", "Safari", "Opera", "Edge"]
 color_settings_browsers = {
     palette["red"]: ["Safari"],
     palette["orange"]: ["Firefox"],
@@ -61,25 +59,7 @@ def len_list_list(l: list[list]):
 #
 # FILTERS
 #
-# re_user_agent = r"(?: ?([\w\- ]+)(?:\/([\w.]+))?(?: \(([^()]*)\))?)"
-# 1: platform, 2: version, 3: details
-def get_os_browser_pairs_from_agent(user_agent):
-    # for groups in findall(re_user_agent, user_agent):
-    operating_system = ""
-    browser = ""
-    mobile = "Mobi" in user_agent
-    for os in user_agent_operating_systems:
-        if os in user_agent:
-            operating_system = os
-            break
-    for br in user_agent_browsers:
-        if br in user_agent:
-            browser = br
-            break
-    # if not operating_system or not browser: print(f"Warning: get_os_browser_pairs_from_agent: Could not find all information for agent '{user_agent}', found os: '{operating_system}' and browser: '{browser}'")
-    return operating_system, browser, mobile
-
-def get_os_browser_mobile_rankings(user_agent_ranking):
+def get_os_browser_mobile_rankings(cur: sql.Cursor, user_ids: list[int]):
     """
     returns [(count, operating_system)], [(count, browser)], mobile_user_percentage
     """
@@ -88,8 +68,10 @@ def get_os_browser_mobile_rankings(user_agent_ranking):
     browser_ranking = {}
     browser_count = 0.0
     mobile_ranking = { True: 0.0, False: 0.0 }
-    for count, agent in user_agent_ranking:
-        os, browser, mobile = get_os_browser_pairs_from_agent(agent)
+    for user_id in user_ids:
+        cur.execute(f"SELECT platform,browser,mobile FROM {t_user} WHERE user_id = {user_id}")
+        os, browser, mobile = cur.fetchone()
+        mobile = bool(mobile)
         if os:
             if os in os_ranking: os_ranking[os] += 1
             else: os_ranking[os] = 1
@@ -114,40 +96,91 @@ def get_os_browser_mobile_rankings(user_agent_ranking):
 #
 # GETTERS
 #
+def get_where_date_str(at_date=None, min_date=None, max_date=None):
+    # dates in unix time
+    s = ""
+    if at_date is not None:
+        if isinstance(at_date, str):
+            s += f"DATE(date, 'unixepoch') = '{sanitize(at_date)}' AND "
+        elif isinstance(at_date, int|float):
+            s += f"date = {int(at_date)} AND "
+        else:
+            print(f"WARNING: get_where_date_str: Invalid type of argument at_date: {type(at_date)}")
+    if min_date is not None:
+        if isinstance(min_date, str):
+            s += f"DATE(date, 'unixepoch') >= '{sanitize(min_date)}' AND "
+        elif isinstance(min_date, int|float):
+            s += f"date >= {int(min_date)} AND "
+        else:
+            print(f"WARNING: get_where_date_str: Invalid type of argument min_date: {type(min_date)}")
+    if max_date is not None:
+        if isinstance(max_date, str):
+            s += f"DATE(date, 'unixepoch') <= '{sanitize(max_date)}' AND "
+        elif isinstance(max_date, int|float):
+            s += f"date <= {int(max_date)} AND "
+        else:
+            print(f"WARNING: get_where_date_str: Invalid type of argument max_date: {type(max_date)}")
+    if s == "":
+        print(f"WARNING: get_where_date_str: no date_str generated. Returing 'date > 0'. at_date={at_date}, min_date={min_date}, max_date={max_date}")
+        return "date > 0"
+    return s.removesuffix(" AND ")
+
+
+# get the earliest date
+def get_earliest_date(cur: sql.Cursor) -> int:
+    """return the earliest time as unixepoch"""
+    cur.execute(f"SELECT MIN(date) FROM {t_request}")
+    return cur.fetchone()[0]
+# get the latest date
+def get_latest_date(cur: sql.Cursor) -> int:
+    """return the latest time as unixepoch"""
+    cur.execute(f"SELECT MAX(date) FROM {t_request}")
+    return cur.fetchone()[0]
 # get all dates
-def get_dates(cur: sql.Cursor) -> list[str]:
-    cur.execute(f"SELECT DISTINCT DATE(date, 'unixepoch') FROM {t_request}")
+# the date:str parameter in all these function must be a sqlite constraint
+def get_days(cur: sql.Cursor, date:str) -> list[str]:
+    """get a list of all dates in yyyy-mm-dd format"""
+    cur.execute(f"SELECT DISTINCT DATE(date, 'unixepoch') FROM {t_request} WHERE {date}")
     return [ date[0] for date in cur.fetchall() ]  # fetchall returns tuples (date, )
 
-def get_unique_user_ids_for_date(cur: sql.Cursor, date:str) -> list[int]:
-    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE DATE(date, 'unixepoch') = '{sanitize(date)}'")
-    return [ user_id[0] for user_id in cur.fetchall() ]
+def get_months(cur: sql.Cursor, date:str) -> list[str]:
+    """get a list of all dates in yyyy-mm format"""
+    cur.execute(f"SELECT DISTINCT DATE(date, 'unixepoch') FROM {t_request} WHERE {date}")
+    dates = get_days(cur, date)
+    date_dict = {}
+    for date in dates:
+        date_without_day = date[0:date.rfind('-')]
+        date_dict[date_without_day] = 0
+    return list(date_dict.keys())
+
 
 def get_user_agent(cur: sql.Cursor, user_id: int):
     return sql_select(cur, t_user, [("user_id", user_id)])[0][2]
 
-def get_unique_user_ids_for_date_human(cur: sql.Cursor, date: str):
-    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE DATE(date, 'unixepoch') = '{sanitize(date)}'")
+def get_unique_user_ids_for_date(cur: sql.Cursor, date:str) -> list[int]:
+    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE {date}")
+    return [ user_id[0] for user_id in cur.fetchall() ]
+
+def get_human_users(cur: sql.Cursor, unique_user_ids):
     human_user_ids = []
-    for user_id in cur.fetchall():
-        user_agent = get_user_agent(cur, user_id[0])
-        os, browser, mobile = get_os_browser_pairs_from_agent(user_agent)
-        # print("get_unique_user_ids_for_date", user_id[0], os, browser, user_agent)
-        if os and browser:
-            human_user_ids.append(user_id[0])
+    for user_id in unique_user_ids:
+        cur.execute(f"SELECT EXISTS (SELECT 1 FROM {t_user} WHERE user_id = {user_id} AND platform IS NOT NULL AND browser IS NOT NULL)")
+        if cur.fetchone()[0] == 1:
+            human_user_ids.append(user_id)
     return human_user_ids
 
 def get_unique_request_ids_for_date(cur: sql.Cursor, date:str) -> list[int]:
-    cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE DATE(date, 'unixepoch') = '{sanitize(date)}'")
+    cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date}")
     return [ request_id[0] for request_id in cur.fetchall() ]
 
 def get_unique_request_ids_for_date_and_user(cur: sql.Cursor, date:str, user_id: int) -> list[int]:
-    cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE DATE(date, 'unixepoch') = '{sanitize(date)}' AND user_id = {user_id}")
+    cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date} AND user_id = {user_id}")
     return [ request_id[0] for request_id in cur.fetchall() ]
 
 # get number of requests per day
 def get_request_count_for_date(cur: sql.Cursor, date:str) -> int:
-    return sql_get_count_where(cur, t_request, [("DATE(date, 'unixepoch')", date)])
+    cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE {date}")
+    return cur.fetchone()[0]
 
 def get_unique_user_count(cur: sql.Cursor) -> int:
     return sql_tablesize(cur, t_user)
@@ -157,7 +190,7 @@ def get_unique_user_count(cur: sql.Cursor) -> int:
 #
 # RANKINGS
 #
-def get_file_ranking(cur: sql.Cursor, min_date_unix_time = 0) -> list[tuple[int, str]]:
+def get_file_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     global settings
     """
     :returns [(request_count, filename)]
@@ -173,18 +206,18 @@ def get_file_ranking(cur: sql.Cursor, min_date_unix_time = 0) -> list[tuple[int,
             if not fullmatch(settings["file_ranking_regex_whitelist"], filename):
                 continue
         # ranking.append((sql_get_count_where(cur, t_request, [("group_id", group)]), filename))
-        cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE group_id = {group} AND date >= {min_date_unix_time}")
+        cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE group_id = {group} AND {date}")
         ranking.append((cur.fetchone()[0], filename))
     ranking.sort()
     # print(ranking)
     return ranking
 
-def get_user_agent_ranking(cur: sql.Cursor, min_date_unix_time = 0) -> list[tuple[int, str]]:
+def get_user_agent_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     """
     :returns [(request_count, user_agent)]
     """
     ranking = []
-    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE date >= {min_date_unix_time}")
+    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE {date}")
     for user_id in cur.fetchall():
         user_id = user_id[0]
         user_agent = sql_select(cur, t_user, [("user_id", user_id)])
@@ -194,13 +227,13 @@ def get_user_agent_ranking(cur: sql.Cursor, min_date_unix_time = 0) -> list[tupl
             if not fullmatch(settings["user_agent_ranking_regex_whitelist"], user_agent):
                 continue
         # ranking.append((sql_get_count_where(cur, t_request, [("group_id", group)]), filename))
-        cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE user_id = {user_id} AND date >= {min_date_unix_time}")
+        cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE user_id = {user_id} AND {date}")
         ranking.append((cur.fetchone()[0], user_agent))
     ranking.sort()
     # print(ranking)
     return ranking
 
-def get_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Cursor, min_date_unix_time = 0) -> list[tuple[int, str]]:
+def get_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     """
     1) get all the distinct entries for field_name after min_date_unix_time
     2) call get_name_function with the distinct entry
@@ -209,14 +242,14 @@ def get_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Curs
     :returns [(request_count, name)]
     """
     ranking = []
-    cur.execute(f"SELECT DISTINCT {field_name} FROM {table} WHERE date >= {min_date_unix_time}")
+    cur.execute(f"SELECT DISTINCT {field_name} FROM {table} WHERE {date}")
     for name in cur.fetchall():
         name = name[0]
         if whitelist_regex:
             if not fullmatch(whitelist_regex, name):
                 continue
         # ranking.append((sql_get_count_where(cur, t_request, [("group_id", group)]), filename))
-        cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {field_name} = '{name}' AND date >= {min_date_unix_time}")
+        cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {field_name} = '{name}' AND {date}")
         ranking.append((cur.fetchone()[0], name))
     ranking.sort()
     # print(ranking)
@@ -256,11 +289,11 @@ def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="",
         ft = ranking[i][1].split(".")[-1]
         color = "blue"
         if not color_settings: color = "blue"
-        elif type(color_settings) == dict:
+        elif isinstance(color_settings, dict):
             for key, val in color_settings.items():
                 if ft in val: color = key
             if not color: color = "blue"
-        elif type(color_settings) == list:
+        elif isinstance(color_settings, list):
             # print(color_settings, (i - start_index) % len(color_settings))
             color = color_settings[(i - start_index) % len(color_settings)]
         colors.append(color)
@@ -340,27 +373,35 @@ def visualize(loaded_settings: dict):
     img_dir = settings["img_dir"]
     img_filetype = settings["img_filetype"]
     names = {
-        # general
-        "regina_version": settings["version"]
         # paths
-        "img_file_ranking": f"{img_dir}/ranking_all_time_files.{img_filetype}",
-        "img_referer_ranking": f"{img_dir}/ranking_all_time_referers.{img_filetype}",
-        "img_browser_ranking": f"{img_dir}/ranking_all_time_browsers.{img_filetype}",
-        "img_operating_system_ranking": f"{img_dir}/ranking_all_time_operating_systems.{img_filetype}",
-        "img_daily": f"{img_dir}/user_request_count_daily.{img_filetype}",
+        "img_file_ranking_last_x_days": f"{img_dir}/ranking_all_time_files_last_x_days.{img_filetype}",
+        "img_referer_ranking_last_x_days": f"{img_dir}/ranking_all_time_referers_last_x_days.{img_filetype}",
+        "img_browser_ranking_last_x_days": f"{img_dir}/ranking_all_time_browsers_last_x_days.{img_filetype}",
+        "img_operating_system_ranking_last_x_days": f"{img_dir}/ranking_all_time_operating_systems_last_x_days.{img_filetype}",
+        "img_users_and_requests_last_x_days": f"{img_dir}/user_request_count_daily_last_x_days.{img_filetype}",
+
+        "img_file_ranking_total": f"{img_dir}/ranking_all_time_files_total.{img_filetype}",
+        "img_referer_ranking_total": f"{img_dir}/ranking_all_time_referers_total.{img_filetype}",
+        "img_browser_ranking_total": f"{img_dir}/ranking_all_time_browsers_total.{img_filetype}",
+        "img_operating_system_ranking_total": f"{img_dir}/ranking_all_time_operating_systems_total.{img_filetype}",
+        "img_users_and_requests_total": f"{img_dir}/user_request_count_daily_total.{img_filetype}",
         # values
-        "mobile_user_percentage": 0.0,
-        "server-name": settings["server-name"],
-        "last_x_days": settings["last_x_days"],
-        # order matters!
-        "total_user_count_x_days": 0,
-        "total_request_count_x_days": 0,
-        "total_user_count": 0,
-        "total_request_count": 0,
+        "mobile_user_percentage_total": 0.0,
+        "mobile_user_percentage_last_x_days": 0.0,
+        "user_count_x_days": 0,
+        "user_count_total": 0,
+        "request_count_x_days": 0,
+        "request_count_total": 0,
         "human_user_percentage_x_days": 0,
         "human_request_percentage_x_days": 0,
-        "human_user_percentage": 0,
-        "human_request_percentage": 0,
+        "human_user_percentage_total": 0,
+        "human_request_percentage_total": 0,
+        # general
+        "regina_version": settings["version"],
+        "server-name": settings["server-name"],
+        "last_x_days": settings["last_x_days"],  # must be after all the things with last_x_days!
+        "earliest_date": "1990-1-1",
+        "generation_date": "1990-1-1 0:0:0",
     }
 
     conn = sql.connect(settings["db"])
@@ -372,72 +413,105 @@ def visualize(loaded_settings: dict):
     cur = conn.cursor()
 
     get_humans = settings["get-human-percentage"]
-    print("\t>>>>>>", get_humans)
+    # DATE STRINGS
+    names["earliest_date"] = dt.fromtimestamp(get_earliest_date(cur)).strftime("%Y-%m-%d")
+    names["generation_date"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    # LAST_X_DAYS
+    # last_x_days_min_date: latest_date - last_x_days
+    secs_per_day = 86400
+    last_x_days_min_date = get_latest_date(cur) - settings["last_x_days"] * secs_per_day
+    last_x_days_str = get_where_date_str(min_date=last_x_days_min_date)
+    days = get_days(cur, last_x_days_str)
+    days_strs = [get_where_date_str(at_date=day) for day in days]
 
-    # files
-    file_ranking = get_file_ranking(cur)
-    if gen_img:
-        fig_file_ranking = plot_ranking(file_ranking, xlabel="Filename/Filegroup", ylabel="Number of requests", color_settings=color_settings_filetypes)
-        fig_file_ranking.savefig(names["img_file_ranking"])
 
-    # referer
-    referer_ranking = get_ranking("referer", t_request, settings["referer_ranking_regex_whitelist"], cur)
-    print("Referer ranking", referer_ranking)
-    if gen_img:
-        fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate)
-        fig_referer_ranking.savefig(names["img_referer_ranking"])
+    # ALL DATES
+    all_time_str = get_where_date_str(min_date=0)
+    # all months in yyyy-mm format
+    months_all_time = get_months(cur, all_time_str)
+    # sqlite constrict to month string
+    months_strs = []
+    for year_month in months_all_time:
+        year, month = year_month.split("-")
+        # first day of the month
+        min_date  = dt(int(year), int(month), 1).timestamp()
+        month = (int(month) % 12) + 1  # + 1 month
+        year = int(year)
+        if month == 1: year += 1
+        # first day of the next month - 1 sec
+        max_date = dt(year, month, 1).timestamp() - 1
+        months_strs.append(get_where_date_str(min_date=min_date, max_date=max_date))
 
-    # dates
-    dates = get_dates(cur)
-    # user
-    user_agent_ranking = get_user_agent_ranking(cur)
-    unique_user_ids_for_dates = []
-    unique_request_ids_for_dates = []
-    unique_user_ids_for_dates_human = []
-    unique_request_ids_for_dates_human = []
-    for date in dates:
-        unique_user_ids_for_dates.append(get_unique_user_ids_for_date(cur, date))
-        unique_request_ids_for_dates.append(get_unique_request_ids_for_date(cur, date))
+    for i in range(2):
+        suffix = ["_total", "_last_x_days"][i]
+        date_str = [all_time_str, last_x_days_str][i]
+        date_names = [months_all_time, days][i]
+        date_strs = [months_strs, days_strs][i]
+        assert(len(date_names) == len(date_strs))
+
+        # FILES
+        file_ranking = get_file_ranking(cur, date_str)
+        if gen_img:
+            fig_file_ranking = plot_ranking(file_ranking, xlabel="Filename/Filegroup", ylabel="Number of requests", color_settings=color_settings_filetypes)
+            fig_file_ranking.savefig(names[f'img_file_ranking{suffix}'])
+
+        # REFERER
+        referer_ranking = get_ranking("referer", t_request, settings["referer_ranking_regex_whitelist"], cur, date_str)
+        if gen_img:
+            fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate)
+            fig_referer_ranking.savefig(names[f'img_referer_ranking{suffix}'])
+
+        # USER
+        # user_agent_ranking = get_user_agent_ranking(cur, date_str)
+        # for the time span
+        unique_user_ids = get_unique_user_ids_for_date(cur, date_str)
+        unique_user_ids_human = get_human_users(cur, unique_user_ids)
+        # for each date
+        unique_user_ids_dates: list[list[int]] = []
+        unique_request_ids_dates: list[list[int]] = []
+        unique_user_ids_human_dates: list[list[int]] = []
+        unique_request_ids_human_dates: list[list[int]] = []
+        for i in range(len(date_strs)):
+            date_str_ = date_strs[i]
+            unique_user_ids_dates.append(get_unique_user_ids_for_date(cur, date_str_))
+            unique_request_ids_dates.append(get_unique_request_ids_for_date(cur, date_str_))
+            if get_humans:
+                unique_user_ids_human_dates.append(get_human_users(cur, unique_user_ids_dates[-1]))
+                unique_request_ids_human_dates.append([])
+                for human in unique_user_ids_human_dates[-1]:
+                    unique_request_ids_human_dates[-1] += get_unique_request_ids_for_date_and_user(cur, date_str_, human)
+        # print("\n\tuu", unique_user_ids_dates, "\n\tur",unique_request_ids_dates, "\n\tuuh", unique_user_ids_human_dates, "\n\turh", unique_request_ids_human_dates)
         if get_humans:
-            unique_user_ids_for_dates_human.append(get_unique_user_ids_for_date_human(cur, date))
-            unique_request_ids_for_dates_human.append([])
-            for human in unique_user_ids_for_dates_human[-1]:
-                unique_request_ids_for_dates_human[-1] += get_unique_request_ids_for_date_and_user(cur, date, human)
-    if get_humans:
-        try:
-            names["human_user_percentage_x_days"] = round(100 * len_list_list(unique_user_ids_for_dates_human) / len_list_list(unique_user_ids_for_dates), 2)
-            names["human_request_percentage_x_days"] = round(100 * len_list_list(unique_request_ids_for_dates_human) / len_list_list(unique_request_ids_for_dates), 2)
-        except: pass
-    print(">>>", len_list_list(unique_request_ids_for_dates), len_list_list(unique_request_ids_for_dates_human))
-    names["total_user_count"] = sql_tablesize(cur, t_user)
-    names["total_request_count"] = sql_tablesize(cur, t_request)
-    names["total_user_count_x_days"] = len_list_list(unique_user_ids_for_dates)
-    names["total_request_count_x_days"] = len_list_list(unique_request_ids_for_dates)
+            try:
+                names[f"human_user_percentage{suffix}"] = round(100 * len_list_list(unique_user_ids_human_dates) / len_list_list(unique_user_ids_dates), 2)
+                names[f"human_request_percentage{suffix}"] = round(100 * len_list_list(unique_request_ids_human_dates) / len_list_list(unique_request_ids_dates), 2)
+            except: pass
+        names[f"user_count{suffix}"] = len_list_list(unique_user_ids_dates)
+        names[f"request_count{suffix}"] = len_list_list(unique_request_ids_dates)
+        if gen_img:
+            fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"])
+            if get_humans:
+                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", ylabel2="Einzigartige Anfragen", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots)
+            fig_daily.savefig(names[f"img_users_and_requests{suffix}"])
 
-    # os & browser
-    os_ranking, browser_ranking, names["mobile_user_percentage"] = get_os_browser_mobile_rankings(user_agent_ranking)
-    if gen_img:
-        fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems)
-        fig_os_rating.savefig(names["img_operating_system_ranking"])
-        fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browsers", ylabel="Share [%]", color_settings=color_settings_browsers)
-        fig_browser_rating.savefig(names["img_browser_ranking"])
+        # os & browser
+        os_ranking, browser_ranking, names[f"mobile_user_percentage{suffix}"] = get_os_browser_mobile_rankings(cur, unique_user_ids_human)
+        if gen_img:
+            fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems)
+            fig_os_rating.savefig(names[f"img_operating_system_ranking{suffix}"])
+            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browsers", ylabel="Share [%]", color_settings=color_settings_browsers)
+            fig_browser_rating.savefig(names[f"img_browser_ranking{suffix}"])
 
-    # print("File Ranking", file_ranking)
-    # print("referer Ranking", referer_ranking)
-    # print("user agent ranking", user_agent_ranking)
-    # print("Unique Users:", get_unique_user_count(cur))
-    # fig_daily, ax_daily_users = plot(dates, [len(user_ids) for user_ids in unique_user_ids_for_dates], xlabel="Datum", ylabel="Einzigartige Nutzer", label="Einzigartige Nutzer", color="blue")
-    # fig_daily, ax_daily_requests = plot(dates, [len(request_ids) for request_ids in unique_request_ids_for_dates], fig=fig_daily, ax=ax_daily_users, xlabel="Datum", ylabel="Einzigartige Anfragen", label="Einzigartige Anfragen", color="orange")
-    # fig_daily.savefig(f"{img_dir}/daily.{img_filetype}")
-    if gen_img:
-        fig_daily, ax1, ax2, plots = plot2y(dates, [len(user_ids) for user_ids in unique_user_ids_for_dates], [len(request_ids) for request_ids in unique_request_ids_for_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"])
-        if get_humans:
-            fig_daily, ax1, ax2, plots = plot2y(dates, [len(user_ids) for user_ids in unique_user_ids_for_dates_human], [len(request_ids) for request_ids in unique_request_ids_for_dates_human], label1="Unique users (human)", ylabel2="Einzigartige Anfragen", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots)
-        fig_daily.savefig(names["img_daily"])
-    print("OS ranking", os_ranking)
-    print("Browser ranking", browser_ranking)
-    print("Mobile percentage", names["mobile_user_percentage"])
-    print(dates, "\n\tuu", unique_user_ids_for_dates, "\n\tur",unique_request_ids_for_dates, "\n\tuuh", unique_user_ids_for_dates_human, "\n\turh", unique_request_ids_for_dates_human)
+        # print("File Ranking", file_ranking)
+        # print("referer Ranking", referer_ranking)
+        # print("user agent ranking", user_agent_ranking)
+        # print("Unique Users:", get_unique_user_count(cur))
+        # fig_daily, ax_daily_users = plot(dates, [len(user_ids) for user_ids in unique_user_ids_for_dates], xlabel="Datum", ylabel="Einzigartige Nutzer", label="Einzigartige Nutzer", color="blue")
+        # fig_daily, ax_daily_requests = plot(dates, [len(request_ids) for request_ids in unique_request_ids_for_dates], fig=fig_daily, ax=ax_daily_users, xlabel="Datum", ylabel="Einzigartige Anfragen", label="Einzigartige Anfragen", color="orange")
+        # fig_daily.savefig(f"{img_dir}/daily.{img_filetype}")
+    # print("OS ranking", os_ranking)
+    # print("Browser ranking", browser_ranking)
+    # print("Mobile percentage", names["mobile_user_percentage"])
     if settings["template_html"] and settings["html_out_path"]:
         with open(settings["template_html"], "r") as file:
             html = file.read()
@@ -445,5 +519,3 @@ def visualize(loaded_settings: dict):
             html = html.replace(f"%{name}", str(value))
         with open(settings["html_out_path"], "w") as file:
             file.write(html)
-
-

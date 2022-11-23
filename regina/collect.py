@@ -1,9 +1,13 @@
 import sqlite3 as sql
 from re import match
 from time import mktime
-from datetime import datetime as dt
 from database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
 from sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
+from datetime import datetime as dt
+
+"""
+collect information from the access log and put it into the database
+"""
 
 DEBUG = True
 def pdebug(*args):
@@ -14,6 +18,12 @@ def warning(w):
 
 
 months = ["Jan", "Feb", "Mar", "Apr", "Jun", "Jul", "Aut", "Sep", "Oct", "Nov", "Dez"]
+
+# these oses and browser can be detected:
+# lower element takes precedence
+user_agent_operating_systems = ["Windows", "Android", "Linux", "iPhone", "iPad", "Mac", "BSD"]
+user_agent_browsers = ["Firefox", "DuckDuckGo", "SeaMonkey", "Vivaldi", "Yandex", "Brave", "SamsungBrowser", "Lynx", "Epiphany", "Chromium", "Chrome", "Safari", "Opera", "Edge"]
+
 
 class Request:
     def __init__(self, ip_address="", time_local="", request_type="", request_file="", request_protocol="", status="", bytes_sent="", referer="", user_agent=""):
@@ -38,9 +48,6 @@ class Request:
         self.bytes_sent = sanitize(bytes_sent)
         self.referer = sanitize(referer)
         self.user_agent = sanitize(user_agent)
-
-    def insert_user_sql_str(self, user_id, user_table="user"):
-        return f"INSERT INTO {user_table} (user_id, ip_address, user_agent) VALUES ({user_id}, '{self.ip_address}', '{self.user_agent}');"
 
     def __repr__(self):
         return f"{self.ip_address} - {self.time_local} - {self.request_file} - {self.user_agent} - {self.status}"
@@ -88,8 +95,27 @@ def get_user_id(request: Request, cursor: sql.Cursor) -> int:
         # new user_id is number of elements
         user_id: int = sql_tablesize(cursor, t_user)
         pdebug("new user:", user_id, request.ip_address)
-        cursor.execute(request.insert_user_sql_str(user_id))
+        platform, browser, mobile = get_os_browser_pairs_from_agent(request.user_agent)
+        cursor.execute(f"INSERT INTO {t_user} (user_id, ip_address, user_agent, platform, browser, mobile) VALUES ({user_id}, '{request.ip_address}', '{request.user_agent}', '{platform}', '{browser}', '{int(mobile)}');")
     return user_id
+
+# re_user_agent = r"(?: ?([\w\- ]+)(?:\/([\w.]+))?(?: \(([^()]*)\))?)"
+# 1: platform, 2: version, 3: details
+def get_os_browser_pairs_from_agent(user_agent):
+    # for groups in findall(re_user_agent, user_agent):
+    operating_system = ""
+    browser = ""
+    mobile = "Mobi" in user_agent
+    for os in user_agent_operating_systems:
+        if os in user_agent:
+            operating_system = os
+            break
+    for br in user_agent_browsers:
+        if br in user_agent:
+            browser = br
+            break
+    # if not operating_system or not browser: print(f"Warning: get_os_browser_pairs_from_agent: Could not find all information for agent '{user_agent}', found os: '{operating_system}' and browser: '{browser}'")
+    return operating_system, browser, mobile
 
 
 def add_requests_to_db(requests: list[Request], db_name: str):

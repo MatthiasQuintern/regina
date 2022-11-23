@@ -2,6 +2,11 @@ import sqlite3 as sql
 from sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 from os import path, listdir
 
+
+"""
+create reginas database as shown in the uml diagram database.uxf
+"""
+
 DEBUG = True
 def pdebug(*args):
     if DEBUG: print(*args)
@@ -43,7 +48,7 @@ filegroup_id = Entry("group_id", "INTEGER")
 ip_address_entry = Entry("ip_address", "TEXT")
 filename_entry = Entry("filename", "TEXT")
 database_tables = {
-    t_user: Table(t_user, user_id, [Entry("ip_address", "TEXT"), Entry("user_agent", "TEXT")], [f"UNIQUE({user_id.name})"]),
+    t_user: Table(t_user, user_id, [Entry("ip_address", "TEXT"), Entry("user_agent", "TEXT"), Entry("platform", "TEXT"), Entry("browser", "TEXT"), Entry("mobile", "INTEGER")], [f"UNIQUE({user_id.name})"]),
     t_file: Table(t_file, filename_entry, [filegroup_id], [f"UNIQUE({filename_entry.name})"]),
     t_filegroup: Table(t_filegroup, filegroup_id, [Entry("groupname", "TEXT")], [f"UNIQUE({filegroup_id.name})"]),
     t_request: Table(t_request, request_id, [
@@ -124,12 +129,12 @@ def create_db(name, filegroup_str="", location_and_dirs:list[tuple[str, str]]=[]
     """
     create the name with database_tables
     """
+    print(f"creating database: '{name}'")
     conn = sql.connect(f"{name}")
     cursor = conn.cursor()
     for table in database_tables.values():
         cursor.execute(table.create_sql_str())
     filegroup_str = filegroup_str.strip("; ") + ";" + get_auto_filegroup_str(location_and_dirs, auto_group_filetypes)
-    print(filegroup_str)
     create_filegroups(cursor, filegroup_str)
     conn.commit()
     conn.close()

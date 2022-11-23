@@ -1,6 +1,5 @@
 import sqlite3 as sql
-"""Various sql utilities"""
-
+"""Various utilities"""
 def sanitize(s):
     if type(s) != str: return s
     return s\
