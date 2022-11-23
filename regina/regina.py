@@ -1,10 +1,9 @@
-from enum import auto
-from collect import parse_log, add_requests_to_db
 from sys import argv, exit
-from database import create_db
-from os.path import isfile, isdir
-from visualize import visualize
-from settings_manager import read_settings_file
+from os.path import isfile
+from .visualize import visualize
+from .settings_manager import read_settings_file
+from .collect import parse_log, add_requests_to_db
+from .database import create_db
 
 """
 start regina, launch either collect or visualize
@@ -64,7 +63,7 @@ def error(arg):
     print("Error:", arg)
     exit(1)
 
-if __name__ == '__main__':
+def main():
     config_file = ""
     collect = False
     visualize_ = False
@@ -110,3 +109,6 @@ if __name__ == '__main__':
     if visualize_:
         if not isfile(settings["db"]): error(f"Invalid database path: '{settings['db']}'")
         visualize(settings)
+
+if __name__ == '__main__':
+    main()

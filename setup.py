@@ -13,7 +13,7 @@ setup(
         license="GPLv3",
 
         packages=["regina"],
-        install_requires=["sqlite3"],
+        install_requires=[],
 
         classifiers=[
             "Operating System :: POSIX :: Linux",
@@ -25,6 +25,6 @@ setup(
 
         # scripts=["bin/nicole"],
         entry_points={
-            "console_scripts": [ "regina=regina.main:main" ],
+            "console_scripts": [ "regina=regina.regina:main" ],
             },
 )

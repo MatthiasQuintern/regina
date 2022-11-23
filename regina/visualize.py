@@ -1,12 +1,12 @@
 import sqlite3 as sql
 from sys import argv, exit
-from database import t_request, t_user, t_file, t_filegroup, database_tables
-from sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
 from re import fullmatch, findall
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from os.path import isdir
 from datetime import datetime as dt
+from .database import t_request, t_user, t_file, t_filegroup, database_tables
+from .sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
 """
 visualize information from the databse
 TODO:

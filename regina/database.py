@@ -1,6 +1,6 @@
 import sqlite3 as sql
-from sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 from os import path, listdir
+from .sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 
 
 """

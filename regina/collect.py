@@ -1,9 +1,9 @@
 import sqlite3 as sql
 from re import match
 from time import mktime
-from database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
-from sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 from datetime import datetime as dt
+from .database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
+from .sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 
 """
 collect information from the access log and put it into the database
