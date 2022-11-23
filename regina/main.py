@@ -6,6 +6,8 @@ from os.path import isfile, isdir
 from visualize import visualize
 from settings_manager import read_settings_file
 
+version = "1.0"
+
 # default settings, these are overwriteable through a config file
 settings = {
     # GENERAL
@@ -87,6 +89,7 @@ if __name__ == '__main__':
     if not isfile(config_file):
         error(f"Not a file: '{config_file}'")
     read_settings_file(config_file, settings)
+    settings["version"] = version
 
     if not settings["server-name"]: missing_arg("server-name")
     if not settings["access-log"]: missing_arg("log")

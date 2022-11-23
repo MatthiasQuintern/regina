@@ -340,11 +340,15 @@ def visualize(loaded_settings: dict):
     img_dir = settings["img_dir"]
     img_filetype = settings["img_filetype"]
     names = {
+        # general
+        "regina_version": settings["version"]
+        # paths
         "img_file_ranking": f"{img_dir}/ranking_all_time_files.{img_filetype}",
         "img_referer_ranking": f"{img_dir}/ranking_all_time_referers.{img_filetype}",
         "img_browser_ranking": f"{img_dir}/ranking_all_time_browsers.{img_filetype}",
         "img_operating_system_ranking": f"{img_dir}/ranking_all_time_operating_systems.{img_filetype}",
         "img_daily": f"{img_dir}/user_request_count_daily.{img_filetype}",
+        # values
         "mobile_user_percentage": 0.0,
         "server-name": settings["server-name"],
         "last_x_days": settings["last_x_days"],
