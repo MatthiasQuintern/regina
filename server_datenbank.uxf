@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.0.0">
+  <zoom_level>19</zoom_level>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>38</x>
+      <y>323</y>
+      <w>342</w>
+      <h>190</h>
+    </coordinates>
+    <panel_attributes>User
+--
+&lt;&lt;PK&gt;&gt;- user_id
+--
+- ip address
+- user agent string
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1064</x>
+      <y>323</y>
+      <w>247</w>
+      <h>152</h>
+    </coordinates>
+    <panel_attributes>FileGroup
+--
+&lt;&lt;PK&gt;&gt;- group_id
+--
+- group_name
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>874</x>
+      <y>323</y>
+      <w>228</w>
+      <h>95</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=n
+m2=1
+</panel_attributes>
+    <additional_attributes>10.0;20.0;100.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>608</x>
+      <y>304</y>
+      <w>285</w>
+      <h>285</h>
+    </coordinates>
+    <panel_attributes>Request
+--
+&lt;&lt;PK&gt;&gt;- request_id
+--
+- user_id
+- file name
+--
+- date
+- referer
+- status
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>361</x>
+      <y>323</y>
+      <w>285</w>
+      <h>95</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=n
+</panel_attributes>
+    <additional_attributes>10.0;20.0;130.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1064</x>
+      <y>722</y>
+      <w>190</w>
+      <h>152</h>
+    </coordinates>
+    <panel_attributes>File
+--
+&lt;&lt;PK&gt;&gt;- name
+--
+- group_id
+--
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1121</x>
+      <y>456</y>
+      <w>76</w>
+      <h>304</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=n
+m2=1
+</panel_attributes>
+    <additional_attributes>10.0;140.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLNote</id>
+    <coordinates>
+      <x>779</x>
+      <y>95</y>
+      <w>570</w>
+      <h>133</h>
+    </coordinates>
+    <panel_attributes>One group contains multiple files.
+Lets you group the images from a 
+html with the html itself
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1083</x>
+      <y>209</y>
+      <w>57</w>
+      <h>152</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;60.0;10.0;10.0</additional_attributes>
+  </element>
+</diagram>
