@@ -68,11 +68,15 @@ def main():
     config_file = ""
     collect = False
     visualize_ = False
+    log_file = ""
     # parse args
     i = 1
     while i in range(1, len(argv)):
         if argv[i] == "--config":
             if len(argv) > i + 1: config_file = argv[i+1]
+            else: missing_arg_val(argv[i])
+        if argv[i] == "--log-file":
+            if len(argv) > i + 1: log_file = argv[i+1]
             else: missing_arg_val(argv[i])
         elif argv[i] == "--help":
             help()
@@ -93,6 +97,8 @@ def main():
         error(f"Not a file: '{config_file}'")
     read_settings_file(config_file, settings)
     settings["version"] = version
+    if log_file: settings["access-log"] = log_file
+
     print(f"regina version {version} with server-name '{settings['server-name']}' and database '{settings['db']}'")
 
     if not settings["server-name"]: missing_arg("server-name")

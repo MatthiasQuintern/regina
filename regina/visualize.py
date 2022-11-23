@@ -1,11 +1,10 @@
 import sqlite3 as sql
-from sys import argv, exit
-from re import fullmatch, findall
+from sys import exit
+from re import fullmatch
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 from os.path import isdir
 from datetime import datetime as dt
-from .database import t_request, t_user, t_file, t_filegroup, database_tables
+from .database import t_request, t_user, t_file, t_filegroup
 from .sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
 """
 visualize information from the databse
@@ -372,6 +371,7 @@ def visualize(loaded_settings: dict):
 
     img_dir = settings["img_dir"]
     img_filetype = settings["img_filetype"]
+    img_location = settings["img_location"]
     names = {
         # paths
         "img_file_ranking_last_x_days": f"ranking_all_time_files_last_x_days.{img_filetype}",
@@ -388,13 +388,13 @@ def visualize(loaded_settings: dict):
         # values
         "mobile_user_percentage_total": 0.0,
         "mobile_user_percentage_last_x_days": 0.0,
-        "user_count_x_days": 0,
+        "user_count_last_x_days": 0,
         "user_count_total": 0,
-        "request_count_x_days": 0,
+        "request_count_last_x_days": 0,
         "request_count_total": 0,
-        "human_user_percentage_x_days": 0,
-        "human_request_percentage_x_days": 0,
+        "human_user_percentage_last_x_days": 0,
         "human_user_percentage_total": 0,
+        "human_request_percentage_last_x_days": 0,
         "human_request_percentage_total": 0,
         # general
         "regina_version": settings["version"],
@@ -491,14 +491,14 @@ def visualize(loaded_settings: dict):
         if gen_img:
             fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"])
             if get_humans:
-                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", ylabel2="Einzigartige Anfragen", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots)
-            fig_daily.savefig(f"{img_dir}{names[f'img_users_and_requests{suffix}']}")
+                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots)
+            fig_daily.savefig(f"{img_dir}/{names[f'img_users_and_requests{suffix}']}")
 
         # os & browser
         os_ranking, browser_ranking, names[f"mobile_user_percentage{suffix}"] = get_os_browser_mobile_rankings(cur, unique_user_ids_human)
         if gen_img:
             fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems)
-            fig_os_rating.savefig(f"{img_dir}{names[f'img_operating_system_ranking{suffix}']}")
+            fig_os_rating.savefig(f"{img_dir}/{names[f'img_operating_system_ranking{suffix}']}")
             fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browsers", ylabel="Share [%]", color_settings=color_settings_browsers)
             fig_browser_rating.savefig(f"{img_dir}/{names[f'img_browser_ranking{suffix}']}")
 
