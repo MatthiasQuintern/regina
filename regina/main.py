@@ -3,10 +3,10 @@
 # __package__="."
 from sys import argv, exit
 from os.path import isfile
-from db_operation.visualize import visualize
-from utility.settings_manager import read_settings_file
 from db_operation.collect import parse_log, add_requests_to_db
 from db_operation.database import create_db
+from db_operation.visualize import visualize
+from utility.settings_manager import read_settings_file
 from utility.globals import settings, version
 
 """

@@ -6,7 +6,6 @@ from os import path, listdir
 from utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 from utility.utility import pdebug
 
-
 """
 create reginas database as shown in the uml diagram database.uxf
 """

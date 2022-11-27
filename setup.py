@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
         name="regina",
@@ -12,7 +12,7 @@ setup(
 
         license="GPLv3",
 
-        packages=["regina"],
+        packages=find_packages(),
         install_requires=[],
         python_requires='>=3.10',
 
@@ -26,6 +26,6 @@ setup(
 
         # scripts=["bin/nicole"],
         entry_points={
-            "console_scripts": [ "regina=regina.regina:main" ],
+            "console_scripts": [ "regina=regina.main:main" ],
             },
 )
