@@ -7,7 +7,7 @@
       <x>364</x>
       <y>273</y>
       <w>299</w>
-      <h>208</h>
+      <h>234</h>
     </coordinates>
     <panel_attributes>User
 --
@@ -19,6 +19,7 @@
 - platform: TEXT
 - browser: TEXT
 - mobile: INTEGER
+- is_human: INTEGER
 style=autoresize</panel_attributes>
     <additional_attributes/>
   </element>
