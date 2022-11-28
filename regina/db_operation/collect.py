@@ -2,10 +2,10 @@ import sqlite3 as sql
 from re import match
 from time import mktime
 from datetime import datetime as dt
-from db_operation.database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
-from utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
-from utility.utility import pdebug, warning
-from utility.globals import user_agent_operating_systems, user_agent_browsers, settings
+from regina.db_operation.database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
+from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
+from regina.utility.utility import pdebug, warning
+from regina.utility.globals import user_agent_operating_systems, user_agent_browsers, settings
 
 """
 collect information from the access log and put it into the database
@@ -73,13 +73,23 @@ def parse_log(logfile:str) -> list[Request]:
                                 status=g[4], bytes_sent=g[5], referer=g[6], user_agent=g[7]))
     return requests
 
+
+def user_exists(cursor, request) -> bool:
+    if settings["unique_user_is_ip_address"]:
+        return sql_exists(cursor, t_user, [("ip_address", request.ip_address)])
+    else:
+        return sql_exists(cursor, t_user, [("ip_address", request.ip_address), ("user_agent", request.user_agent)])
+
 def get_user_id(request: Request, cursor: sql.Cursor) -> int:
     """
     get the user_id. Adds the user if not already existing
     """
     # if user exists
-    if sql_exists(cursor, t_user, [("ip_address", request.ip_address), ("user_agent", request.user_agent)]):
-        user_id = sql_select(cursor, t_user, [("ip_address", request.ip_address), ("user_agent", request.user_agent)])[0][0]
+    if user_exists(cursor, request):
+        if settings["unique_user_is_ip_address"]:
+            user_id = sql_select(cursor, t_user, [("ip_address", request.ip_address)])[0][0]
+        else:
+            user_id = sql_select(cursor, t_user, [("ip_address", request.ip_address), ("user_agent", request.user_agent)])[0][0]
     else:  # new user 
         # new user_id is number of elements
         user_id: int = sql_tablesize(cursor, t_user)
@@ -139,8 +149,12 @@ def add_requests_to_db(requests: list[Request], db_name: str):
     cursor = conn.cursor()
     # check the new users later
     max_user_id = sql_tablesize(cursor, t_user)
+    request_blacklist = settings["request_location_regex_blacklist"]
     for i in range(len(requests)):
         request = requests[i]
+        # skip requests to blacklisted locations
+        if request_blacklist:
+            if match(request_blacklist, request.request_file): continue
         # pdebug("add_requests_to_db:", i, "request:", request)
         user_id = get_user_id(request, cursor)
         conn.commit()

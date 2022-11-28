@@ -6,7 +6,7 @@ from sys import exit
 Various utitity
 """
 
-DEBUG = False
+DEBUG = True
 def pdebug(*args):
     if DEBUG: print(*args)
 

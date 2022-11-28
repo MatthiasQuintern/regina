@@ -3,8 +3,8 @@
 import sqlite3 as sql
 from os import path, listdir
 # local
-from utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
-from utility.utility import pdebug
+from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
+from regina.utility.utility import pdebug
 
 """
 create reginas database as shown in the uml diagram database.uxf

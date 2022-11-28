@@ -3,14 +3,23 @@
 # __package__="."
 from sys import argv, exit
 from os.path import isfile
-from db_operation.collect import parse_log, add_requests_to_db
-from db_operation.database import create_db
-from db_operation.visualize import visualize
-from utility.settings_manager import read_settings_file
-from utility.globals import settings, version
+from regina.db_operation.collect import parse_log, add_requests_to_db
+from regina.db_operation.database import create_db
+from regina.db_operation.visualize import visualize
+from regina.utility.settings_manager import read_settings_file
+from regina.utility.globals import settings, version
 
 """
 start regina, launch either collect or visualize
+TODO:
+- bei referrers &auml;hnliche zusammenlegen, z.b. www.google.de und https://google.com
+- optionen:
+    - unique user = ip address
+    - max requests/time
+
+- wenn datenbankgröße zum problem wird:
+    - referrer table die die schon zusammengelegten referrer enthält, request verlinkt nur mit id
+    - selbes für platforms und browsers
 """
 
 
@@ -71,9 +80,9 @@ def main():
         error(f"Not a file: '{config_file}'")
     read_settings_file(config_file, settings)
     settings["version"] = version
-    if log_file: settings["access-log"] = log_file
+    if log_file: settings["access_log"] = log_file
 
-    print(f"regina version {version} with server-name '{settings['server_name']}' and database '{settings['db']}'")
+    print(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}' and logfile '{settings['access_log']}'")
 
     if not settings["server_name"]: missing_arg("server-name")
     if not settings["access_log"]: missing_arg("log")

@@ -12,6 +12,8 @@ settings = {
     "locs_and_dirs": [],
     "auto_group_filetypes": [],
     "filegroups": "",
+    "request_location_regex_blacklist": "",
+    "unique_user_is_ip_address": False,
 
     # VISUALIZATION
     "get_human_percentage": False,
@@ -20,6 +22,9 @@ settings = {
     # "file_ranking_regex_whitelist": r".*\.((txt)|(html)|(css)|(php)|(png)|(jpeg)|(jpg)|(svg)|(gif))",
     "file_ranking_regex_whitelist": r".*\.(html)",
     "file_ranking_ignore_error_files": False,  # skip files that only had unsuccessful requests (status < 300)
+    "referer_ranking_ignore_protocol": True,
+    "referer_ranking_ignore_subdomain": False,
+    "referer_ranking_ignore_location": True,
     "referer_ranking_regex_whitelist": r"^[^\-].*",  # minus means empty
     "user_agent_ranking_regex_whitelist": r"",
     "file_ranking_plot_max_files": 15,

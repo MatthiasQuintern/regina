@@ -9,17 +9,14 @@ from datetime import datetime as dt
 
 from numpy import empty
 # local
-from db_operation.database import t_request, t_user, t_file, t_filegroup
-from utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
-from utility.utility import pdebug, warning, missing_arg
-from utility.globals import settings
+from regina.db_operation.database import t_request, t_user, t_file, t_filegroup
+from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
+from regina.utility.utility import pdebug, warning, missing_arg
+from regina.utility.globals import settings
 
 
 """
 visualize information from the databse
-TODO:
-- bei referrers &auml;hnliche zusammenlegen, z.b. www.google.de und https://google.com
-- ignore 404
 """
 
 palette = {
@@ -141,12 +138,18 @@ def get_where_date_str(at_date=None, min_date=None, max_date=None):
 def get_earliest_date(cur: sql.Cursor) -> int:
     """return the earliest time as unixepoch"""
     cur.execute(f"SELECT MIN(date) FROM {t_request}")
-    return cur.fetchone()[0]
+    date = cur.fetchone()[0]
+    if not isinstance(date, int): return 0
+    else: return date
+
 # get the latest date
 def get_latest_date(cur: sql.Cursor) -> int:
     """return the latest time as unixepoch"""
     cur.execute(f"SELECT MAX(date) FROM {t_request}")
-    return cur.fetchone()[0]
+    date = cur.fetchone()[0]
+    if not isinstance(date, int): return 0
+    else: return date
+
 # get all dates
 # the date:str parameter in all these function must be a sqlite constraint
 def get_days(cur: sql.Cursor, date:str) -> list[str]:
@@ -295,6 +298,48 @@ def get_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Curs
     ranking.sort()
     # print(ranking)
     return ranking
+
+re_uri_protocol = f"(https?)://"
+re_uri_ipv4 = r"(?:(?:(?:\d{1,3}\.?){4})(?::\d+)?)"
+# re_uri_ipv6 = ""
+re_uri_domain = r"(?:([^/]+\.)*[^/]+\.[a-zA-Z]{2,})"
+re_uri_location = r"(?:/(.*))?"
+re_uri_full = f"{re_uri_protocol}({re_uri_domain}|{re_uri_ipv4})({re_uri_location})"
+
+def cleanup_referer(referer: str) -> str:
+    """
+    split the referer uri into its parts and reassemeble them depending on settings
+    """
+    m = fullmatch(re_uri_full, referer)
+    if not m:
+        pdebug(f"cleanup_referer: Could not match referer '{referer}'")
+        return referer
+    # pdebug(f"cleanup_referer: {referer} - {m.groups()}")
+    protocol = m.groups()[0]
+    subdomains = m.groups()[2]
+    if not subdomains: subdomains = ""
+    domain = m.groups()[1].replace(subdomains, "")
+    location = m.groups()[3]
+
+    referer = domain
+    if not settings["referer_ranking_ignore_subdomain"]: referer = subdomains + referer
+    if not settings["referer_ranking_ignore_protocol"]: referer = protocol + "://" + referer
+    if not settings["referer_ranking_ignore_location"]: referer += location
+    # pdebug(f"cleanup_referer: cleaned up: {referer}")
+    return referer
+
+def cleanup_referer_ranking(referer_ranking: list[tuple[int, str]]):
+    unique_referers = dict()
+    for count, referer in referer_ranking:
+        referer = cleanup_referer(referer)
+        if referer in unique_referers:
+            unique_referers[referer] += count
+        else:
+            unique_referers[referer] = count
+    referer_ranking.clear()
+    for referer, count in unique_referers.items():
+        referer_ranking.append((count, referer))
+    referer_ranking.sort()
 
 
 #
@@ -463,7 +508,8 @@ def visualize(loaded_settings: dict):
     get_humans = settings["get_human_percentage"]
     # pdebug(f"visualize: settings {settings}")
     # DATE STRINGS
-    names["earliest_date"] = dt.fromtimestamp(get_earliest_date(cur)).strftime("%Y-%m-%d")
+    earliest_date = get_earliest_date(cur)
+    names["earliest_date"] = dt.fromtimestamp(earliest_date).strftime("%Y-%m-%d")
     names["generation_date"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
     # LAST_X_DAYS
     # last_x_days_min_date: latest_date - last_x_days
@@ -506,6 +552,7 @@ def visualize(loaded_settings: dict):
 
         # REFERER
         referer_ranking = get_ranking("referer", t_request, settings["referer_ranking_regex_whitelist"], cur, date_str)
+        cleanup_referer_ranking(referer_ranking)
         if gen_img:
             fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate)
             fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_referer_ranking{suffix}']}")
