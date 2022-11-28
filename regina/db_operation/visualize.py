@@ -321,7 +321,10 @@ def cleanup_referer(referer: str) -> str:
     domain = m.groups()[1].replace(subdomains, "")
     location = m.groups()[3]
 
-    referer = domain
+    assert(len(domain.split(".")) == 2)
+    referer = domain.split(".")[0]
+    if not settings["referer_ranking_ignore_tld"]: referer += "." + domain.split(".")[1]
+    if not settings["referer_ranking_ignore_subdomain"]: referer = subdomains + referer
     if not settings["referer_ranking_ignore_subdomain"]: referer = subdomains + referer
     if not settings["referer_ranking_ignore_protocol"]: referer = protocol + "://" + referer
     if not settings["referer_ranking_ignore_location"]: referer += location

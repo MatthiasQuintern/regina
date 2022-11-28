@@ -8,18 +8,31 @@ from regina.db_operation.database import create_db
 from regina.db_operation.visualize import visualize
 from regina.utility.settings_manager import read_settings_file
 from regina.utility.globals import settings, version
+from regina.utility.utility import pmessage
 
 """
 start regina, launch either collect or visualize
 TODO:
-- bei referrers &auml;hnliche zusammenlegen, z.b. www.google.de und https://google.com
 - optionen:
     - unique user = ip address
     - max requests/time
-
+- fix datum im user and request count plot
+- fix datum monat is 1 zu wenig
+- checken warum last x days und total counts abweichen
+- länder aus ip addresse
+- "manuelle" datenbank beabeitung in cli:
+    - user + alle seine requests löschen
+- user agents:
+    - android vor linux suchen, oder linux durch X11 ersetzen
+    - alles was bot drin hat als bot betrachten
 - wenn datenbankgröße zum problem wird:
     - referrer table die die schon zusammengelegten referrer enthält, request verlinkt nur mit id
     - selbes für platforms und browsers
+- test:
+    - human detection
+    - referer cleanup
+- schöne log nachrichten für die cron mail
+- testing!
 """
 
 
@@ -82,7 +95,6 @@ def main():
     settings["version"] = version
     if log_file: settings["access_log"] = log_file
 
-    print(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}' and logfile '{settings['access_log']}'")
 
     if not settings["server_name"]: missing_arg("server-name")
     if not settings["access_log"]: missing_arg("log")
@@ -91,14 +103,20 @@ def main():
         settings["auto_group_filetypes"] = settings["auto_group_filetypes"].split(",")
     if isinstance(settings["locs_and_dirs"], str):
         settings["locs_and_dirs"] = [ loc_and_dir.split(":") for loc_and_dir in settings["locs_and_dirs"].split(",") ]
+
+
     if collect:
+        pmessage(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}' and logfile '{settings['access_log']}'")
         if not isfile(settings["db"]):
             create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
         requests = parse_log(settings["access_log"])
         add_requests_to_db(requests, settings["db"])
-    if visualize_:
+    elif visualize_:
+        pmessage(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}'")
         if not isfile(settings["db"]): error(f"Invalid database path: '{settings['db']}'")
         visualize(settings)
+    else:
+        error("Either --collect --visualize has to be provided")
 
 if __name__ == '__main__':
     main()

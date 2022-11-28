@@ -6,12 +6,15 @@ from sys import exit
 Various utitity
 """
 
-DEBUG = True
-def pdebug(*args):
-    if DEBUG: print(*args)
+DEBUG = False
+def pdebug(*args, **keys):
+    if DEBUG: print(*args, **keys)
 
-def warning(*w):
-    print("Warning:", *w)
+def warning(*w, **k):
+    print("Warning:", *w, **k)
+
+def pmessage(*args, **keys):
+    print(*args, **keys)
 
 def error(*arg):
     print("Error:", *arg)

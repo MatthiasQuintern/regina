@@ -24,6 +24,8 @@ setup(
             "Topic :: Utilities",
             ],
 
+        # data_files=[("ip2nation", ["ip2nation.sql", "ip2nation.db"])],
+
         # scripts=["bin/nicole"],
         entry_points={
             "console_scripts": [ "regina=regina.main:main" ],

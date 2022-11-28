@@ -47,7 +47,16 @@ filegroup_id = Entry("group_id", "INTEGER")
 ip_address_entry = Entry("ip_address", "TEXT")
 filename_entry = Entry("filename", "TEXT")
 database_tables = {
-    t_user: Table(t_user, user_id, [Entry("ip_address", "TEXT"), Entry("user_agent", "TEXT"), Entry("platform", "TEXT"), Entry("browser", "TEXT"), Entry("mobile", "INTEGER"), Entry("is_human", "INTEGER")], [f"UNIQUE({user_id.name})"]),
+    t_user: Table(t_user, user_id, [
+            Entry("ip_address", "TEXT"),
+            Entry("user_agent", "TEXT"),
+            Entry("platform", "TEXT"),
+            Entry("browser", "TEXT"),
+            Entry("mobile", "INTEGER"),
+            Entry("is_human", "INTEGER"),
+            # Entry("country_iso_code_3", "TEXT")
+        ],
+        [f"UNIQUE({user_id.name})"]),
     t_file: Table(t_file, filename_entry, [filegroup_id], [f"UNIQUE({filename_entry.name})"]),
     t_filegroup: Table(t_filegroup, filegroup_id, [Entry("groupname", "TEXT")], [f"UNIQUE({filegroup_id.name})"]),
     t_request: Table(t_request, request_id, [
@@ -73,7 +82,7 @@ def get_filegroup(filename: str, cursor: sql.Cursor) -> int:
         cursor.execute(f"SELECT group_id FROM {t_filegroup} WHERE groupname = '{suffix}'")
         # cursor.execute(f"SELECT group_id FROM {t_filegroup} WHERE groupname LIKE '%.{suffix}'")
         group_id_candidates = cursor.fetchall()
-        pdebug(f"get_filegroup: file={filename} candidates={group_id_candidates}")
+        # pdebug(f"get_filegroup: file={filename} candidates={group_id_candidates}")
         if group_id_candidates:
             return group_id_candidates[0][0]
         else:  # add new group file filename
