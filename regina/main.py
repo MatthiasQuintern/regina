@@ -16,8 +16,11 @@ TODO:
 - optionen:
     - unique user = ip address
     - max requests/time
+    - unique request datums unabhängig
 - fix datum im user and request count plot
 - fix datum monat is 1 zu wenig
+- fix ms edge nicht dabei
+- für letzten Tag: uhrzeit - requests/users plot
 - checken warum last x days und total counts abweichen
 - länder aus ip addresse
 - "manuelle" datenbank beabeitung in cli:

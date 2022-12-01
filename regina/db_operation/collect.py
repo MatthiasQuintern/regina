@@ -1,5 +1,5 @@
 import sqlite3 as sql
-from re import match
+from re import fullmatch, match
 from time import mktime
 from datetime import datetime as dt
 from regina.db_operation.database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
@@ -180,7 +180,7 @@ def add_requests_to_db(requests: list[Request], db_name: str):
         request = requests[i]
         # skip requests to blacklisted locations
         if request_blacklist:
-            if match(request_blacklist, request.request_file):
+            if fullmatch(request_blacklist, request.request_file):
                 # pdebug(f"add_requests_to_db: request on blacklist '{request.request_file}'")
                 continue
         # pdebug("add_requests_to_db:", i, "request:", request)
