@@ -13,6 +13,7 @@ settings = {
     "auto_group_filetypes": [],
     "filegroups": "",
     "request_location_regex_blacklist": "",
+    "request_is_same_on_same_day": True,  # mutiple requests from same user to same file at same day are counted as 1
     "unique_user_is_ip_address": False,
     "user_get_country": True,
 
@@ -44,4 +45,22 @@ settings = {
 # these oses and browser can be detected:
 # lower element takes precedence
 user_agent_operating_systems = ["Windows", "Android", "Linux", "iPhone", "iPad", "Mac", "BSD"]
-user_agent_browsers = ["Firefox", "DuckDuckGo", "SeaMonkey", "Vivaldi", "Yandex", "Brave", "SamsungBrowser", "Lynx", "Epiphany", "Chromium", "Chrome", "Safari", "Opera", "Edge"]
+"""
+some browsers have multiple browsers in their user agent:
+    SeaMonkey: Firefox
+    Waterfox: Firefox
+    Chrome: Safari
+    Edge: Chrome, Safari
+    SamsungBrowser: Chrome, Safari
+
+"""
+user_agent_browsers = [
+    # todo YaBrowser/Yowser, OPR, Edg
+    # order does not matter, as long as firefox, chrome safari come later
+    "DuckDuckGo", "SeaMonkey", "Waterfox", "Vivaldi", "Yandex", "Brave", "SamsungBrowser", "Lynx", "Epiphany",
+    # order does matter
+    # Edg sometimes uses Edg or EdgA (android)
+    "Firefox", "Opera", "Edg", "Chromium", "Chrome", "Safari"
+]
+
+

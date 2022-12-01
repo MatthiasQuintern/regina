@@ -138,6 +138,18 @@ def is_user_human(cur: sql.Cursor, user_id: int):
     # user is human
     return True
 
+def request_exists(cur: sql.Cursor, request: Request, user_id: int, group_id: int):
+    # get all requests from same user to same location
+    sql.execute(f"SELECT request_id, date FROM {t_request} WHERE user_id = '{user_id}' AND group_id = '{group_id}'")
+    date0 = dt.fromtimestamp(request.time_local).strftime("%Y-%m-%d")
+    for request_id, date1 in sql.fetchall():
+        if settings["request_is_same_on_same_day"]:
+            date1 = dt.fromtimestamp(date1).strftime("%Y-%m-%d")
+            if date0 == date1:
+                pdebug(f"request_exists: Request is on same day as request {request_id}")
+                return True
+    return False
+
 
 # re_user_agent = r"(?: ?([\w\- ]+)(?:\/([\w.]+))?(?: \(([^()]*)\))?)"
 # 1: platform, 2: version, 3: details
@@ -188,9 +200,7 @@ def add_requests_to_db(requests: list[Request], db_name: str):
         conn.commit()
         group_id: int = get_filegroup(request.request_file, cursor)
         # check if request is unique
-        group_id_name = database_tables[t_filegroup].key.name
-        user_id_name = database_tables[t_user].key.name
-        if sql_exists(cursor, t_request, [(group_id_name, group_id), (user_id_name, user_id), ("date", request.time_local)]):
+        if request_exists(cursor, request, user_id, group_id):
             # pdebug("request exists:", request)
             pass
         else:
