@@ -10,7 +10,7 @@ from regina.utility.globals import user_agent_operating_systems, user_agent_brow
 """
 collect information from the access log and put it into the database
 """
-months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aut", "Sep", "Oct", "Nov", "Dez"]
+months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aut", "Sep", "Oct", "Nov", "Dec"]
 
 
 
@@ -140,9 +140,9 @@ def is_user_human(cur: sql.Cursor, user_id: int):
 
 def request_exists(cur: sql.Cursor, request: Request, user_id: int, group_id: int):
     # get all requests from same user to same location
-    sql.execute(f"SELECT request_id, date FROM {t_request} WHERE user_id = '{user_id}' AND group_id = '{group_id}'")
+    cur.execute(f"SELECT request_id, date FROM {t_request} WHERE user_id = '{user_id}' AND group_id = '{group_id}'")
     date0 = dt.fromtimestamp(request.time_local).strftime("%Y-%m-%d")
-    for request_id, date1 in sql.fetchall():
+    for request_id, date1 in cur.fetchall():
         if settings["request_is_same_on_same_day"]:
             date1 = dt.fromtimestamp(date1).strftime("%Y-%m-%d")
             if date0 == date1:
