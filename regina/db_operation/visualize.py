@@ -312,7 +312,7 @@ def cleanup_referer(referer: str) -> str:
     """
     m = fullmatch(re_uri_full, referer)
     if not m:
-        pdebug(f"cleanup_referer: Could not match referer '{referer}'")
+        warning(f"cleanup_referer: Could not match referer '{referer}'")
         return referer
     # pdebug(f"cleanup_referer: {referer} - {m.groups()}")
     protocol = m.groups()[0]
@@ -325,7 +325,6 @@ def cleanup_referer(referer: str) -> str:
     if settings["referer_ranking_ignore_tld"]:
         if len(domain.split(".")) == 2:  # if domain.tld
             referer = domain.split(".")[0]
-    if not settings["referer_ranking_ignore_subdomain"]: referer = subdomains + referer
     if not settings["referer_ranking_ignore_subdomain"]: referer = subdomains + referer
     if not settings["referer_ranking_ignore_protocol"]: referer = protocol + "://" + referer
     if not settings["referer_ranking_ignore_location"]: referer += location
