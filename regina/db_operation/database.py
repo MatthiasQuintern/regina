@@ -40,12 +40,12 @@ class Table:
 t_request = "request"
 t_file = "file"
 t_filegroup = "filegroup"
-t_user = "user"
+t_visitor = "visitor"
 t_city = "city"
 t_country = "country"
 t_ip_range = "ip_range"
 
-user_id = Entry("user_id", "INTEGER")
+visitor_id = Entry("visitor_id", "INTEGER")
 request_id = Entry("request_id", "INTEGER")
 filegroup_id = Entry("group_id", "INTEGER")
 ip_address_entry = Entry("ip_address", "TEXT")
@@ -55,16 +55,16 @@ country_id = Entry("country_id", "INTEGER")
 ip_range_id = Entry("ip_range_id", "INTEGER")
 
 database_tables = {
-    t_user: Table(t_user, user_id, [
+    t_visitor: Table(t_visitor, visitor_id, [
             Entry("ip_address", "INTEGER"),
-            Entry("user_agent", "TEXT"),
+            Entry("visitor_agent", "TEXT"),
             Entry("platform", "TEXT"),
             Entry("browser", "TEXT"),
             Entry("mobile", "INTEGER"),
             Entry("is_human", "INTEGER"),
             ip_range_id,
         ],
-        [f"UNIQUE({user_id.name})"]),
+        [f"UNIQUE({visitor_id.name})"]),
     t_file: Table(t_file, filename_entry,
             [filegroup_id],
             [f"UNIQUE({filename_entry.name})"]),
@@ -72,7 +72,7 @@ database_tables = {
             [Entry("groupname", "TEXT")],
             [f"UNIQUE({filegroup_id.name})"]),
     t_request: Table(t_request, request_id, [
-            user_id,
+            visitor_id,
             filegroup_id,
             Entry("date", "INTEGER"),
             Entry("referer", "TEXT"),
@@ -164,11 +164,12 @@ def get_auto_filegroup_str(location_and_dirs:list[tuple[str, str]], auto_group_f
     """
     files: list[str] = []
     start_i = 0
-    for location, dir_ in location_and_dirs:
-        get_files_from_dir_rec(dir_, files)
-        # replace dir_ with location, eg /www/website with /
-        for i in range(start_i, len(files)):
-            files[i] = files[i].replace(dir_, location).replace("//", "/")
+    if len(location_and_dirs) > 0 and len(location_and_dirs[0]) == 2:
+        for location, dir_ in location_and_dirs:
+            get_files_from_dir_rec(dir_, files)
+            # replace dir_ with location, eg /www/website with /
+            for i in range(start_i, len(files)):
+                files[i] = files[i].replace(dir_, location).replace("//", "/")
     filegroups = ""
     # create groups for each filetype
     for ft in auto_group_filetypes:

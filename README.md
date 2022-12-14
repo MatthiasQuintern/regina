@@ -1,22 +1,51 @@
-# Regina
-Regina is an analytics tool for nginx.
+# regina - nginx analytics tool
 **R**uling **E**mpress **G**enerating **I**n-depth **N**ginx **A**nalytics (obviously)
 
-## About
+## Overview
+Regina is an analytics tool for nginx.
 It collects information from the nginx access.log and stores it in a sqlite3 database.
 Regina supports several data visualization configurations and can generate an admin-analytics page from an html template file.
 
-## Visualization options:
-- Line plot: Einmal seit Beginn der Aufzeichnung(pro Monat), einmal letzte 30 Tage (pro Tag)
-  x: date 
-  y: #unique users, #unique requests
-- Bar charts:
-  - unique user information:
-    - used browsers (in percent)
-    - used operating systems (in percent)
-    - countries (in percent)
-  - unique request information:
-    - requested files (in counts)
-    - HTTP referrers (in counts)
-A unique user is a IP-address - user agent pair.
-A unique request is a unique-user - requested file - date (day) - combination.
+## Command line options
+**-h**, **--help**
+: Show the the possible command line arguments
+
+**-c**, **--config** config-file
+: Retrieve settings from the config-file
+
+**--access-log** log-file
+: Overrides the access_log from the configuration
+
+**--collect**
+: Collect information from the access_log and store them in the databse
+
+**--visualize**
+: Visualize the data from the database
+
+**--update-geoip** geoip-db
+: Recreate the geoip part of the database from the geoip-db csv. The csv must have this form: lower, upper, country-code, country-name, region, city
+
+# Installation with pip
+You can also install regina with python-pip:
+```shell
+git clone https://github.com/MatthiasQuintern/regina.git
+cd regina
+python3 -m pip install .
+```
+You can also install it system-wide using `sudo python3 -m pip install .`
+
+If you also want to install the man-page and the zsh completion script:
+```shell
+sudo cp regina.1.man /usr/share/man/man1/regina.1
+sudo gzip /usr/share/man/man1/regina.1
+sudo cp _regina.compdef.zsh /usr/share/zsh/site-functions/_regina
+sudo chmod +x /usr/share/zsh/site-functions/_regina
+```
+
+# Changelog
+## 1.0
+- Initial release
+
+# Copyright
+Copyright  ©  2022  Matthias  Quintern.  License GPLv3+: GNU GPL version 3 <https://gnu.org/licenses/gpl.html>.\
+This is free software: you are free to change and redistribute it.  There is NO WARRANTY, to the extent permitted by law.

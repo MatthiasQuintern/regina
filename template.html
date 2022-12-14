@@ -8,17 +8,54 @@
         <title>Analytics for %server_name</title>
         <link rel="stylesheet" href="style.css">
     </head>
+    <style>
+        :root {
+            --background:       #111;
+            --box:              #333;
+            --box-border:       #009;
+            --box-radius:       6px;
+            --box-padding:      8px;
+            --box-margin:       20px;
+            --font:             #eee;
+        }
+
+        body {
+            background-color: var(--background);
+            font-family: Custom, Verdana, sans-serif;
+            font-size: 16px;
+            color: var(--font);
+            }
+        .box {
+            background-color: var(--box);
+            border-style: solid;
+            border-width: 2px;
+            border-color: var(--box-border);
+            border-radius: var(--box-radius);
+            padding: var(--box-padding);
+            margin: var(--box-margin);
+        }
+        a { color: #FFF; }
+        img {
+            width: 1000px;
+            max-width: 95%;
+        }
+        .small {
+            width: 500px;
+            max-width: 48%;
+        }
+    </style>
+
     <body>
     <h1>Analytics for %server_name</h1>
     <div class=box>
     <center>
         <h2>Last %last_x_days days</h2>
             <hr>
-            <h3>User and request count (per month)</h3>
-                <img src="%img_users_and_requests_last_x_days" alt="Daily Statistics", title="User and request count for the last %last_x_days days">
+            <h3>Visitor and request count (per month)</h3>
+                <img src="%img_visitors_and_requests_last_x_days" alt="Daily Statistics", title="Visitor and request count for the last %last_x_days days">
                 <ul>
-                    <li>user count: <b>%user_count_last_x_days</b>, from which <b>%human_user_percentage_last_x_days%</b> are human</li>
-                    <li>request count: <b>%request_count_last_x_days</b>, from which <b>%human_request_percentage_last_x_days%</b> came from human users </li>
+                    <li>visitor count: <b>%visitor_count_last_x_days</b>, from which <b>%human_visitor_percentage_last_x_days%</b> are human</li>
+                    <li>request count: <b>%request_count_last_x_days</b>, from which <b>%human_request_percentage_last_x_days%</b> came from human visitors </li>
                 </ul>
             <hr>
 
@@ -27,30 +64,30 @@
             <hr>
 
             <h3>Platforms and browsers</h3>
-                <img src="%img_operating_system_ranking_last_x_days" alt="Operating system ranking for the last %last_x_days days", title="Operating system ranking for the last %last_x_days days">
-                <img src="%img_browser_ranking_last_x_days" alt="Browser ranking for the last %last_x_days days", title="Browser ranking for the last %last_x_days days">
-                <h4>Mobile users: %mobile_user_percentage_last_x_days%</h4>
+                <img class="small" src="%img_operating_system_ranking_last_x_days" alt="Operating system ranking for the last %last_x_days days", title="Operating system ranking for the last %last_x_days days">
+                <img class="small" src="%img_browser_ranking_last_x_days" alt="Browser ranking for the last %last_x_days days", title="Browser ranking for the last %last_x_days days">
+                <h4>Mobile visitors: %mobile_visitor_percentage_last_x_days%</h4>
             <hr>
 
             <h3>Referrers</h3>
                 <img src="%img_referer_ranking_last_x_days" alt="Referer ranking for the last %last_x_days days", title="Referer ranking for the last %last_x_days days">
             <hr>
 
-            <h3>GeoIP</h3>
-                <img src="%img_countries_last_x_days" alt="Country ranking for the last %last_x_days days", title="Country ranking for the last %last_x_days days">
-                <img src="%img_cities_last_x_days" alt="City ranking for the last %last_x_days days", title="City ranking for the last %last_x_days days">
-            <hr>
+            <!-- <h3>GeoIP</h3> -->
+            <!--     <img src="%img_countries_last_x_days" alt="Country ranking for the last %last_x_days days", title="Country ranking for the last %last_x_days days"> -->
+            <!--     <img src="%img_cities_last_x_days" alt="City ranking for the last %last_x_days days", title="City ranking for the last %last_x_days days"> -->
+            <!-- <hr> -->
     </center>
     </div>
     <div class=box>
     <center>
         <h2>Total (since %earliest_date)</h2>
             <hr>
-            <h3>User and request count (per month)</h3>
-                <img src="%img_users_and_requests_total" alt="Monthly Statistics", title="User and request count">
+            <h3>Visitor and request count (per month)</h3>
+                <img src="%img_visitors_and_requests_total" alt="Monthly Statistics", title="Visitor and request count">
                 <ul>
-                    <li>Total user count: <b>%user_count_total</b>, from which <b>%human_user_percentage_total%</b> are human</li>
-                    <li>Total request count: <b>%request_count_total</b>, from which <b>%human_request_percentage_total%</b> came from human users </li>
+                    <li>Total visitor count: <b>%visitor_count_total</b>, from which <b>%human_visitor_percentage_total%</b> are human</li>
+                    <li>Total request count: <b>%request_count_total</b>, from which <b>%human_request_percentage_total%</b> came from human visitors </li>
                 </ul>
             <hr>
 
@@ -59,23 +96,23 @@
             <hr>
 
             <h3>Platforms and browsers</h3>
-                <img src="%img_operating_system_ranking_total" alt="Operating system ranking", title="Operating system ranking">
-                <img src="%img_browser_ranking_total" alt="Browser ranking", title="Browser ranking">
-                <h4>Mobile users: %mobile_user_percentage_total%</h4>
+                <img class="small" src="%img_operating_system_ranking_total" alt="Operating system ranking", title="Operating system ranking">
+                <img class="small" src="%img_browser_ranking_total" alt="Browser ranking", title="Browser ranking">
+                <h4>Mobile visitors: %mobile_visitor_percentage_total%</h4>
             <hr>
 
             <h3>Referrers</h3>
                 <img src="%img_referer_ranking_total" alt="Referer ranking", title="Referer ranking">
             <hr>
 
-            <h3>GeoIP</h3>
-                <img src="%img_countries_total" alt="Country ranking", title="Country ranking">
-                <img src="%img_cities_total" alt="City ranking", title="City ranking">
-            <hr>
+            <!-- <h3>GeoIP</h3> -->
+            <!--     <img src="%img_countries_total" alt="Country ranking", title="Country ranking"> -->
+            <!--     <img src="%img_cities_total" alt="City ranking", title="City ranking"> -->
+            <!-- <hr> -->
     </center>
     </div>
     <p>These analytics were generated by <a href="https://git.quintern.xyz/MatthiasQuintern/regina">regina %regina_version</a> at %generation_date</p>
     <!-- Uncomment if you use IP2Location database -->
-    <p>This site includes IP2Location LITE data available from <a href="https://lite.ip2location.com">https://lite.ip2location.com</a></p>
+    <!-- <p>This site includes IP2Location LITE data available from <a href="https://lite.ip2location.com">https://lite.ip2location.com</a></p> -->
     </body>
 </html>

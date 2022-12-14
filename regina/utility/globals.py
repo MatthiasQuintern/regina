@@ -13,8 +13,9 @@ settings = {
     "auto_group_filetypes": [],
     "filegroups": "",
     "request_location_regex_blacklist": "",
-    "request_is_same_on_same_day": True,  # mutiple requests from same user to same file at same day are counted as 1
-    "unique_user_is_ip_address": False,
+    "request_is_same_on_same_day": True,  # mutiple requests from same visitor to same file at same day are counted as 1
+    "unique_visitor_is_ip_address": False,
+    "get_visitor_location": False,
     "get_cities_for_countries": [""],  # list if country codes for which the ip address ranges need to be collected at city level, not country level
 
     # VISUALIZATION
@@ -33,7 +34,7 @@ settings = {
     "referer_ranking_ignore_location": True,
     "referer_ranking_ignore_tld": False,
     "referer_ranking_regex_whitelist": r"^[^\-].*",  # minus means empty
-    "user_agent_ranking_regex_whitelist": r"",
+    "visitor_agent_ranking_regex_whitelist": r"",
     "file_ranking_plot_max_files": 15,
     # "plot_figsize": (60, 40),
     "plot_dpi": 300,
@@ -52,9 +53,9 @@ settings = {
 
 # these oses and browser can be detected:
 # lower element takes precedence
-user_agent_operating_systems = ["Windows", "Android", "Linux", "iPhone", "iPad", "Mac", "BSD"]
+visitor_agent_operating_systems = ["Windows", "Android", "Linux", "iPhone", "iPad", "Mac", "BSD", "CrOS", "PlayStation", "Xbox", "Nintendo Switch"]
 """
-some browsers have multiple browsers in their user agent:
+some browsers have multiple browsers in their visitor agent:
     SeaMonkey: Firefox
     Waterfox: Firefox
     Chrome: Safari
@@ -62,7 +63,7 @@ some browsers have multiple browsers in their user agent:
     SamsungBrowser: Chrome, Safari
 
 """
-user_agent_browsers = [
+visitor_agent_browsers = [
     # todo YaBrowser/Yowser, OPR, Edg
     # order does not matter, as long as firefox, chrome safari come later
     "DuckDuckGo", "SeaMonkey", "Waterfox", "Vivaldi", "Yandex", "Brave", "SamsungBrowser", "Lynx", "Epiphany",

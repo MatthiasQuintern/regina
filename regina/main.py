@@ -5,7 +5,7 @@ from sys import argv, exit
 from os.path import isfile
 import sqlite3 as sql
 from regina.db_operation.collect import parse_log, add_requests_to_db, update_ip_range_id
-from regina.db_operation.database import create_db, update_geoip_tables, t_user
+from regina.db_operation.database import create_db, update_geoip_tables, t_visitor
 from regina.db_operation.visualize import visualize
 from regina.utility.settings_manager import read_settings_file
 from regina.utility.globals import settings, version
@@ -16,18 +16,18 @@ from regina.utility.sql_util import sql_tablesize
 start regina, launch either collect or visualize
 TODO:
 - optionen:
-    - unique user = ip address
+    - unique visitor = ip address
     - max requests/time
     - unique request datums unabhängig
-X fix datum im user and request count plot
+X fix datum im visitor and request count plot
 X fix datum monat is 1 zu wenig
 X fix ms edge nicht dabei
-- für letzten Tag: uhrzeit - requests/users plot
+- für letzten Tag: uhrzeit - requests/visitors plot
 - checken warum last x days und total counts abweichen
 - länder aus ip addresse
 - "manuelle" datenbank beabeitung in cli:
-    - user + alle seine requests löschen
-- user agents:
+    - visitor + alle seine requests löschen
+- visitor agents:
     X android vor linux suchen, oder linux durch X11 ersetzen
     - alles was bot drin hat als bot betrachten
 - wenn datenbankgröße zum problem wird:
@@ -124,9 +124,9 @@ def main():
         conn = sql.connect(settings['db'], isolation_level=None)  # required vor vacuum
         cur = conn.cursor()
         update_geoip_tables(cur, geoip_city_csv)
-        # update users
-        for user_id in range(sql_tablesize(cur, t_user)):
-            update_ip_range_id(cur, user_id)
+        # update visitors
+        for visitor_id in range(sql_tablesize(cur, t_visitor)):
+            update_ip_range_id(cur, visitor_id)
         cur.close()
         conn.commit()
         conn.close()

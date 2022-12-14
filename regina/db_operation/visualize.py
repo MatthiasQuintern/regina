@@ -9,11 +9,10 @@ from datetime import datetime as dt
 
 from numpy import empty
 # local
-from regina.db_operation.database import t_request, t_user, t_file, t_filegroup, t_ip_range, t_city, t_country
+from regina.db_operation.database import t_request, t_visitor, t_file, t_filegroup, t_ip_range, t_city, t_country
 from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
 from regina.utility.utility import pdebug, warning, missing_arg
 from regina.utility.globals import settings
-
 
 """
 visualize information from the databse
@@ -67,17 +66,17 @@ def valid_status(status: int):
 #
 # FILTERS
 #
-def get_os_browser_mobile_rankings(cur: sql.Cursor, user_ids: list[int]):
+def get_os_browser_mobile_rankings(cur: sql.Cursor, visitor_ids: list[int]):
     """
-    returns [(count, operating_system)], [(count, browser)], mobile_user_percentage
+    returns [(count, operating_system)], [(count, browser)], mobile_visitor_percentage
     """
     os_ranking = {}
     os_count = 0.0
     browser_ranking = {}
     browser_count = 0.0
     mobile_ranking = { True: 0.0, False: 0.0 }
-    for user_id in user_ids:
-        cur.execute(f"SELECT platform,browser,mobile FROM {t_user} WHERE user_id = {user_id}")
+    for visitor_id in visitor_ids:
+        cur.execute(f"SELECT platform,browser,mobile FROM {t_visitor} WHERE visitor_id = {visitor_id}")
         os, browser, mobile = cur.fetchone()
         mobile = bool(mobile)
         if os:
@@ -91,15 +90,15 @@ def get_os_browser_mobile_rankings(cur: sql.Cursor, user_ids: list[int]):
         if (os or browser):
             mobile_ranking[mobile] += 1
     try:
-        mobile_user_percentage = mobile_ranking[True] / (mobile_ranking[True] + mobile_ranking[False])
+        mobile_visitor_percentage = mobile_ranking[True] / (mobile_ranking[True] + mobile_ranking[False])
     except ZeroDivisionError:
-        mobile_user_percentage = 0.0
+        mobile_visitor_percentage = 0.0
 
     os_ranking =  [(c * 100/os_count, n) for n, c in os_ranking.items()]
     os_ranking.sort()
     browser_ranking = [(c * 100/browser_count, n) for n, c in browser_ranking.items()]
     browser_ranking.sort()
-    return os_ranking, browser_ranking, mobile_user_percentage*100
+    return os_ranking, browser_ranking, mobile_visitor_percentage*100
 
 #
 # GETTERS
@@ -170,39 +169,39 @@ def get_months(cur: sql.Cursor, date:str) -> list[str]:
     return list(date_dict.keys())
 
 
-def get_user_agent(cur: sql.Cursor, user_id: int):
-    return sql_select(cur, t_user, [("user_id", user_id)])[0][2]
+def get_visitor_agent(cur: sql.Cursor, visitor_id: int):
+    return sql_select(cur, t_visitor, [("visitor_id", visitor_id)])[0][2]
 
-def get_unique_user_ids_for_date(cur: sql.Cursor, date:str) -> list[int]:
-    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE {date}")
-    return [ user_id[0] for user_id in cur.fetchall() ]
+def get_unique_visitor_ids_for_date(cur: sql.Cursor, date:str) -> list[int]:
+    cur.execute(f"SELECT DISTINCT visitor_id FROM {t_request} WHERE {date}")
+    return [ visitor_id[0] for visitor_id in cur.fetchall() ]
 
-def get_human_users(cur: sql.Cursor, unique_user_ids, unique_user_ids_human: list):
+def get_human_visitors(cur: sql.Cursor, unique_visitor_ids, unique_visitor_ids_human: list):
     """
     check if they have a known platform AND browser
     check if at least one request did not result in an error (http status >= 400)
     """
-    for user_id in unique_user_ids:
-        cur.execute(f"SELECT is_human FROM {t_user} WHERE user_id = {user_id}")
-        # if not user
+    for visitor_id in unique_visitor_ids:
+        cur.execute(f"SELECT is_human FROM {t_visitor} WHERE visitor_id = {visitor_id}")
+        # if not visitor
         if cur.fetchone()[0] == 0:
-            # pdebug(f"get_human_users: {user_id}, is_human is 0")
+            # pdebug(f"get_human_visitors: {visitor_id}, is_human is 0")
             continue
         else:
-            # pdebug(f"get_human_users: {user_id}, is_human is non-zero")
+            # pdebug(f"get_human_visitors: {visitor_id}, is_human is non-zero")
             pass
 
-        # user is human
-        unique_user_ids_human.append(user_id)
-    # pdebug("get_human_users: (2)", unique_user_ids_human)
+        # visitor is human
+        unique_visitor_ids_human.append(visitor_id)
+    # pdebug("get_human_visitors: (2)", unique_visitor_ids_human)
 
 def get_unique_request_ids_for_date(cur: sql.Cursor, date:str):
     cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date}")
     return [ request_id[0] for request_id in cur.fetchall()]
 
-def get_unique_request_ids_for_date_and_user(cur: sql.Cursor, date:str, user_id: int, unique_request_ids_human: list):
-    cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date} AND user_id = {user_id}")
-    # all unique requests for user_id
+def get_unique_request_ids_for_date_and_visitor(cur: sql.Cursor, date:str, visitor_id: int, unique_request_ids_human: list):
+    cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date} AND visitor_id = {visitor_id}")
+    # all unique requests for visitor_id
     for request_id in cur.fetchall():
         unique_request_ids_human.append(request_id[0])
 
@@ -211,8 +210,8 @@ def get_request_count_for_date(cur: sql.Cursor, date:str) -> int:
     cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE {date}")
     return cur.fetchone()[0]
 
-def get_unique_user_count(cur: sql.Cursor) -> int:
-    return sql_tablesize(cur, t_user)
+def get_unique_visitor_count(cur: sql.Cursor) -> int:
+    return sql_tablesize(cur, t_visitor)
 
 
 
@@ -256,23 +255,23 @@ def get_file_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     # print(ranking)
     return ranking
 
-def get_user_agent_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
+def get_visitor_agent_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     """
-    :returns [(request_count, user_agent)]
+    :returns [(request_count, visitor_agent)]
     """
     ranking = []
-    cur.execute(f"SELECT DISTINCT user_id FROM {t_request} WHERE {date}")
-    for user_id in cur.fetchall():
-        user_id = user_id[0]
-        user_agent = sql_select(cur, t_user, [("user_id", user_id)])
-        if len(user_agent) == 0: continue
-        user_agent = user_agent[0][2]
-        if settings["user_agent_ranking_regex_whitelist"]:
-            if not fullmatch(settings["user_agent_ranking_regex_whitelist"], user_agent):
+    cur.execute(f"SELECT DISTINCT visitor_id FROM {t_request} WHERE {date}")
+    for visitor_id in cur.fetchall():
+        visitor_id = visitor_id[0]
+        visitor_agent = sql_select(cur, t_visitor, [("visitor_id", visitor_id)])
+        if len(visitor_agent) == 0: continue
+        visitor_agent = visitor_agent[0][2]
+        if settings["visitor_agent_ranking_regex_whitelist"]:
+            if not fullmatch(settings["visitor_agent_ranking_regex_whitelist"], visitor_agent):
                 continue
         # ranking.append((sql_get_count_where(cur, t_request, [("group_id", group)]), filename))
-        cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE user_id = {user_id} AND {date}")
-        ranking.append((cur.fetchone()[0], user_agent))
+        cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE visitor_id = {visitor_id} AND {date}")
+        ranking.append((cur.fetchone()[0], visitor_agent))
     ranking.sort()
     # print(ranking)
     return ranking
@@ -347,7 +346,7 @@ def cleanup_referer_ranking(referer_ranking: list[tuple[int, str]]):
     referer_ranking.sort()
 
 def get_city_and_country_ranking(cur:sql.Cursor, require_humans=True, regex_city_blacklist="", regex_country_blacklist=""):
-    sql_cmd = f"SELECT ci.name, c.code, c.name FROM {t_country} AS c, {t_city} as ci, {t_user} as u, {t_ip_range} as i WHERE u.ip_range_id = i.ip_range_id AND i.city_id = ci.city_id AND ci.country_id = c.country_id"
+    sql_cmd = f"SELECT ci.name, c.code, c.name FROM {t_country} AS c, {t_city} as ci, {t_visitor} as u, {t_ip_range} as i WHERE u.ip_range_id = i.ip_range_id AND i.city_id = ci.city_id AND ci.country_id = c.country_id"
     if require_humans: sql_cmd += " AND u.is_human = 1"
     cur.execute(sql_cmd)
     pdebug(f"get_city_and_country_ranking: require_humans={require_humans}, regex_city_blacklist='{regex_city_blacklist}', regex_country_blacklist='{regex_country_blacklist}'")
@@ -488,6 +487,7 @@ def visualize(loaded_settings: dict):
     if not settings["server_name"]: missing_arg("server_name")
 
     img_dir = settings["img_dir"]
+    pdebug("img_dir:", img_dir)
     img_filetype = settings["img_filetype"]
     img_location = settings["img_location"]
     names = {
@@ -498,7 +498,7 @@ def visualize(loaded_settings: dict):
         "img_cities_last_x_days": f"ranking_cities_last_x_days.{img_filetype}",
         "img_browser_ranking_last_x_days": f"ranking_browsers_last_x_days.{img_filetype}",
         "img_operating_system_ranking_last_x_days": f"ranking_operating_systems_last_x_days.{img_filetype}",
-        "img_users_and_requests_last_x_days": f"user_request_count_daily_last_x_days.{img_filetype}",
+        "img_visitors_and_requests_last_x_days": f"visitor_request_count_daily_last_x_days.{img_filetype}",
 
         "img_file_ranking_total": f"ranking_files_total.{img_filetype}",
         "img_referer_ranking_total": f"ranking_referers_total.{img_filetype}",
@@ -506,16 +506,16 @@ def visualize(loaded_settings: dict):
         "img_cities_total": f"ranking_cities_total.{img_filetype}",
         "img_browser_ranking_total": f"ranking_browsers_total.{img_filetype}",
         "img_operating_system_ranking_total": f"ranking_operating_systems_total.{img_filetype}",
-        "img_users_and_requests_total": f"user_request_count_daily_total.{img_filetype}",
+        "img_visitors_and_requests_total": f"visitor_request_count_daily_total.{img_filetype}",
         # values
-        "mobile_user_percentage_total": 0.0,
-        "mobile_user_percentage_last_x_days": 0.0,
-        "user_count_last_x_days": 0,
-        "user_count_total": 0,
+        "mobile_visitor_percentage_total": 0.0,
+        "mobile_visitor_percentage_last_x_days": 0.0,
+        "visitor_count_last_x_days": 0,
+        "visitor_count_total": 0,
         "request_count_last_x_days": 0,
         "request_count_total": 0,
-        "human_user_percentage_last_x_days": 0.0,
-        "human_user_percentage_total": 0.0,
+        "human_visitor_percentage_last_x_days": 0.0,
+        "human_visitor_percentage_total": 0.0,
         "human_request_percentage_last_x_days": 0.0,
         "human_request_percentage_total": 0.0,
         # general
@@ -592,63 +592,63 @@ def visualize(loaded_settings: dict):
             pdebug("Country ranking:", country_ranking)
             pdebug("City ranking:", city_ranking)
             if gen_img:
-                fig_referer_ranking = plot_ranking(country_ranking, xlabel="Country", ylabel="Number of users", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
+                fig_referer_ranking = plot_ranking(country_ranking, xlabel="Country", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
                 fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_countries{suffix}']}", bbox_inches="tight")
 
-                fig_referer_ranking = plot_ranking(city_ranking, xlabel="City", ylabel="Number of users", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
+                fig_referer_ranking = plot_ranking(city_ranking, xlabel="City", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
                 fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_cities{suffix}']}", bbox_inches="tight")
 
 
         # USER
-        # user_agent_ranking = get_user_agent_ranking(cur, date_str)
+        # visitor_agent_ranking = get_visitor_agent_ranking(cur, date_str)
         # for the time span
-        unique_user_ids = get_unique_user_ids_for_date(cur, date_str)
-        unique_user_ids_human = []
-        get_human_users(cur, unique_user_ids, unique_user_ids_human)
+        unique_visitor_ids = get_unique_visitor_ids_for_date(cur, date_str)
+        unique_visitor_ids_human = []
+        get_human_visitors(cur, unique_visitor_ids, unique_visitor_ids_human)
         # for each date
         date_count = len(date_strs)
-        unique_user_ids_dates: list[list[int]] = []
+        unique_visitor_ids_dates: list[list[int]] = []
         unique_request_ids_dates: list[list[int]] = []
-        unique_user_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
+        unique_visitor_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
         unique_request_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
         for i in range(date_count):
             date_str_ = date_strs[i]
-            unique_user_ids_dates.append(get_unique_user_ids_for_date(cur, date_str_))
+            unique_visitor_ids_dates.append(get_unique_visitor_ids_for_date(cur, date_str_))
             unique_request_ids_dates.append(get_unique_request_ids_for_date(cur, date_str_))
             if get_humans:
                 # empty_list = []
-                # unique_user_ids_human_dates.append(empty_list)
-                get_human_users(cur, unique_user_ids_dates[i], unique_user_ids_human_dates[i])
+                # unique_visitor_ids_human_dates.append(empty_list)
+                get_human_visitors(cur, unique_visitor_ids_dates[i], unique_visitor_ids_human_dates[i])
                 # unique_request_ids_human_dates.append(list())
-                for human in unique_user_ids_human_dates[i]:
-                    get_unique_request_ids_for_date_and_user(cur, date_str_, human, unique_request_ids_human_dates[i])
-        # print("\n\tuu", unique_user_ids_dates, "\n\tur",unique_request_ids_dates, "\n\tuuh", unique_user_ids_human_dates, "\n\turh", unique_request_ids_human_dates)
-        # pdebug("uui",   unique_user_ids)
-        # pdebug("uuih",  unique_user_ids_human)
-        # pdebug("uuid",  unique_user_ids_dates)
-        # pdebug("uuidh", unique_user_ids_human_dates)
+                for human in unique_visitor_ids_human_dates[i]:
+                    get_unique_request_ids_for_date_and_visitor(cur, date_str_, human, unique_request_ids_human_dates[i])
+        # print("\n\tuu", unique_visitor_ids_dates, "\n\tur",unique_request_ids_dates, "\n\tuuh", unique_visitor_ids_human_dates, "\n\turh", unique_request_ids_human_dates)
+        # pdebug("uui",   unique_visitor_ids)
+        # pdebug("uuih",  unique_visitor_ids_human)
+        # pdebug("uuid",  unique_visitor_ids_dates)
+        # pdebug("uuidh", unique_visitor_ids_human_dates)
         # pdebug("urid",  unique_request_ids_dates)
-        # pdebug("uridh", unique_user_ids_human_dates)
-        # pdebug(f"human_user_precentage: len_list_list(user_ids)={len_list_list(unique_user_ids_dates)}, len_list_list(user_ids_human)={len_list_list(unique_user_ids_human_dates)}")
+        # pdebug("uridh", unique_visitor_ids_human_dates)
+        # pdebug(f"human_visitor_precentage: len_list_list(visitor_ids)={len_list_list(unique_visitor_ids_dates)}, len_list_list(visitor_ids_human)={len_list_list(unique_visitor_ids_human_dates)}")
         if get_humans:
             try:
-                names[f"human_user_percentage{suffix}"] = round(100 * len_list_list(unique_user_ids_human_dates) / len_list_list(unique_user_ids_dates), 2)
+                names[f"human_visitor_percentage{suffix}"] = round(100 * len_list_list(unique_visitor_ids_human_dates) / len_list_list(unique_visitor_ids_dates), 2)
             except:
-                names[f"human_user_percentage{suffix}"] = -1.0
+                names[f"human_visitor_percentage{suffix}"] = -1.0
             try:
                 names[f"human_request_percentage{suffix}"] = round(100 * len_list_list(unique_request_ids_human_dates) / len_list_list(unique_request_ids_dates), 2)
             except:
                 names[f"human_request_percentage{suffix}"] = -1.0
-        names[f"user_count{suffix}"] = len_list_list(unique_user_ids_dates)
+        names[f"visitor_count{suffix}"] = len_list_list(unique_visitor_ids_dates)
         names[f"request_count{suffix}"] = len_list_list(unique_request_ids_dates)
         if gen_img:
-            fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"], rotate_xlabel=-45, figsize=settings["plot_size_broad"])
+            fig_daily, ax1, ax2, plots = plot2y(date_names, [len(visitor_ids) for visitor_ids in unique_visitor_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="Visitor count", label1="Unique visitors", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"], rotate_xlabel=-45, figsize=settings["plot_size_broad"])
             if get_humans:
-                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots, rotate_xlabel=-45, figsize=settings["plot_size_broad"])
-            fig_daily.savefig(f"{img_dir}/{names[f'img_users_and_requests{suffix}']}", bbox_inches="tight")
+                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(visitor_ids) for visitor_ids in unique_visitor_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique visitors (human)", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots, rotate_xlabel=-45, figsize=settings["plot_size_broad"])
+            fig_daily.savefig(f"{img_dir}/{names[f'img_visitors_and_requests{suffix}']}", bbox_inches="tight")
 
         # os & browser
-        os_ranking, browser_ranking, names[f"mobile_user_percentage{suffix}"] = get_os_browser_mobile_rankings(cur, unique_user_ids_human)
+        os_ranking, browser_ranking, names[f"mobile_visitor_percentage{suffix}"] = get_os_browser_mobile_rankings(cur, unique_visitor_ids_human)
         if gen_img:
             fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems, figsize=settings["plot_size_narrow"])
             fig_os_rating.savefig(f"{img_dir}/{names[f'img_operating_system_ranking{suffix}']}", bbox_inches="tight")
@@ -657,7 +657,7 @@ def visualize(loaded_settings: dict):
 
     # print("OS ranking", os_ranking)
     # print("Browser ranking", browser_ranking)
-    # print("Mobile percentage", names["mobile_user_percentage"])
+    # print("Mobile percentage", names["mobile_visitor_percentage"])
     if settings["template_html"] and settings["html_out_path"]:
         pdebug(f"visualize: writing to html: {settings['html_out_path']}")
 

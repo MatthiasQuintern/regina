@@ -9,13 +9,13 @@
       <w>299</w>
       <h>247</h>
     </coordinates>
-    <panel_attributes>user
+    <panel_attributes>visitor
 --
 &lt;&lt;PK&gt;&gt;
-- user_id: INTEGER
+- visitor_id: INTEGER
 --
 - ip_address: INTEGER
-- user agent string: TEXT
+- visitor agent string: TEXT
 - platform: TEXT
 - browser: TEXT
 - mobile: INTEGER
@@ -68,7 +68,7 @@ m2=1
 &lt;&lt;PK&gt;&gt;
 - request_id: INTEGER
 --
-- user_id: INTEGER
+- visitor_id: INTEGER
 - group_id: INTEGER
 --
 - date: TEXT

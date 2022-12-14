@@ -3,13 +3,13 @@
 % April 2022
 
 # NAME
-**R**uling **E**mpress **G**enerating **I**n-depth **N**ginx **A**nalytics (obviously)
-Regina is an analytics tool for nginx.
+regina - **R**uling **E**mpress **G**enerating **I**n-depth **N**ginx **A**nalytics (obviously)
 
 # SYNOPSIS
 | **regina** --config CONFIG_FILE [OPTION...]
 
 # DESCRIPTION
+Regina is an analytics tool for nginx.
 It collects information from the nginx access.log and stores it in a sqlite3 database.
 Regina supports several data visualization configurations and can generate an admin-analytics page from an html template file.
 
@@ -33,18 +33,8 @@ Regina supports several data visualization configurations and can generate an ad
 : Recreate the geoip part of the database from the geoip-db csv. The csv must have this form: lower, upper, country-code, country-name, region, city
 
 # INSTALLATION AND UPDATING
-To update regina, simply follow the installation instructions.
-
-## pacman (Arch Linux)
-Installing regina using the Arch Build System also installs the man-page and a zsh completion script, if you have zsh installed.
-```shell
-git clone https://github.com/MatthiasQuintern/regina.git
-cd regina
-makepkg -si
-```
-
 ## pip
-You can also install regina with python-pip:
+You can install regina with python-pip:
 ```shell
 git clone https://github.com/MatthiasQuintern/regina.git
 cd regina
