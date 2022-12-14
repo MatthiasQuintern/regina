@@ -1,30 +1,25 @@
-#compdef nicole
+#compdef regina
 # https://zsh.sourceforge.io/Doc/Release/Completion-System.html#Completion-Functions
-_lyrics-site()
-{
-    _values "lyrics site" \
-        'genius[use only genius.com]' \
-        'azlyrics[use only azlyrics.com]' \
-        'all[use all supported sites (default)]'
+_config-file() {
+    # list all files that end in .conf
+    # -s separator, descritions options
+    _values -s , 'config files' $(find . -type f -name '*.conf')
+}
+_csv-file() {
+    _values -s , 'geoip city database as csv' $(find . -type f -name '*.csv')
 }
 
-_nicole()
-{
+_regina() {
     # each argument is
     # n:message:action
     # option[description]:message:action
     # # -s allow stacking, eg -inr
     _arguments -s \
-        '-d[process directory]':directory:_directories \
-        '-f[process file]':file:_files \
-        '-r[go through directories recursively]' \
-        '-s[silent]' \
-        '-i[ignore history]' \
-        '-n[do not write to history]' \
-        '-o[overwrite if the file already has lyrics]' \
-        '-t[test, only print lyrics, dont write to tags]' \
-        '-h[show this]' \
-        '--rm_explicit[remove the "Explicit" lyrics warning from the title tag]' \
-        '--site[specify lyrics site]':lyrics-site:_lyrics-site
+        {--help,-h}'[show help]' \
+        {--config,-c}'[use this config file]':config:_config-file \
+        '--visualize[visualize the data in the database]' \
+        '--collect[collect requests from the nginx log]' \
+        '--access-log[source this logfile]':logfile:_file \
+        '--update-geoip[recreate the geoip database from csv]':csv:_csv-file
 }
-_nicole "$@"
+_regina "$@"

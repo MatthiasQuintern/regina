@@ -1,8 +1,9 @@
 import sqlite3 as sql
 from re import fullmatch, match
+from ipaddress import IPv4Address, ip_address
 from time import mktime
 from datetime import datetime as dt
-from regina.db_operation.database import t_request, t_user, t_file, t_filegroup, database_tables, get_filegroup
+from regina.db_operation.database import t_request, t_user, t_file, t_filegroup, t_ip_range, database_tables, get_filegroup, ip_range_id
 from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 from regina.utility.utility import pdebug, warning, pmessage
 from regina.utility.globals import user_agent_operating_systems, user_agent_browsers, settings
@@ -16,7 +17,7 @@ months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aut", "Sep", "Oct", 
 
 class Request:
     def __init__(self, ip_address="", time_local="", request_type="", request_file="", request_protocol="", status="", bytes_sent="", referer="", user_agent=""):
-        self.ip_address = sanitize(ip_address)
+        self.ip_address = int(IPv4Address(sanitize(ip_address)))
         self.time_local = 0
         #[20/Nov/2022:00:47:36 +0100]
         m =  match(r"\[(\d+)/(\w+)/(\d+):(\d+):(\d+):(\d+).*\]", time_local)
@@ -98,8 +99,11 @@ def get_user_id(request: Request, cursor: sql.Cursor) -> int:
         user_id: int = sql_tablesize(cursor, t_user)
         # pdebug("new user:", user_id, request.ip_address)
         platform, browser, mobile = get_os_browser_pairs_from_agent(request.user_agent)
+        ip_range_id_val = 0
+        if settings["user_get_location"]:
+            ip_range_id_val = get_ip_range_id(cursor, request.ip_address)
         is_human = 0 # is_user_human cannot be called until user is in db int(is_user_human(cursor, user_id))
-        cursor.execute(f"INSERT INTO {t_user} (user_id, ip_address, user_agent, platform, browser, mobile, is_human) VALUES ({user_id}, '{request.ip_address}', '{request.user_agent}', '{platform}', '{browser}', '{int(mobile)}', '{is_human}');")
+        cursor.execute(f"INSERT INTO {t_user} (user_id, ip_address, user_agent, platform, browser, mobile, is_human, {ip_range_id.name}) VALUES ({user_id}, '{request.ip_address}', '{request.user_agent}', '{platform}', '{browser}', '{int(mobile)}', '{is_human}', '{ip_range_id_val}');")
     return user_id
 
 def is_user_human(cur: sql.Cursor, user_id: int):
@@ -170,15 +174,30 @@ def get_os_browser_pairs_from_agent(user_agent):
     return operating_system, browser, mobile
 
 
-# def set_countries(cur: sql.Cursor, user_ids: list[int]):
-#     if settings["user_get_country"]:
-#         ipconn = sql.connect(ip2nation_db_path)
-#         ipcur = ipconn.cursor()
-#         for user_id in user_ids:
-#             ip_address = sql_select(cur, t_user, [("user_id", user_id)])
-#             cur.execute(f"SELECT ip_address FROM {t_user} WHERE user_id = {user_id}")
-#             ip_address = cur.fetchall()[0][0]
-#             ipcur.execute("SELECT iso_code_3 FROM ip2nationCountries WHERE ip")
+def get_ip_range_id(cur: sql.Cursor, ip_address: int):
+    print(f"SELECT {ip_range_id.name} FROM {t_ip_range} WHERE lower <= '{ip_address}' AND to >= '{ip_address}'")
+    cur.execute(f"SELECT {ip_range_id.name} FROM {t_ip_range} WHERE '{ip_address}' BETWEEN lower AND upper")
+    results = cur.fetchall()
+    ip_range_id_val = 0
+    if len(results) == 0:
+        pass
+    elif len(results) > 1:
+        warning(f"get_countries: Found multiple ip_ranges for ip_address={ip_address}: results={results}")
+    else:
+        ip_range_id_val = results[0][0]
+    return ip_range_id_val
+
+def update_ip_range_id(cur: sql.Cursor, user_id: int):
+    cur.execute(f"SELECT ip_address FROM {t_user} WHERE user_id = {user_id}")
+    results = cur.fetchall()
+    if len(results) == 0:
+        warning(f"update_ip_range_id: Invalid user_id={user_id}")
+        return
+    elif len(results) > 1:
+        warning(f"update_ip_range_id: Found multiple ip_addresses for user_id={user_id}: results={results}")
+        return
+    ip_address = results[0][0]
+    cur.execute(f"UPDATE {t_user} SET {ip_range_id.name} = '{get_ip_range_id(cur, ip_address)}' WHERE user_id = '{user_id}'")
 
 
 def add_requests_to_db(requests: list[Request], db_name: str):

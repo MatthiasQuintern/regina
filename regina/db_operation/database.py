@@ -1,10 +1,11 @@
 # from sys import path
-# print(f"{__file__}: __name__={__name__}, __package__={__package__}, sys.path[0]={path[0]}")
 import sqlite3 as sql
+from csv import reader
 from os import path, listdir
 # local
 from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
 from regina.utility.utility import pdebug
+from regina.utility.globals import settings
 
 """
 create reginas database as shown in the uml diagram database.uxf
@@ -40,28 +41,61 @@ t_request = "request"
 t_file = "file"
 t_filegroup = "filegroup"
 t_user = "user"
+t_city = "city"
+t_country = "country"
+t_ip_range = "ip_range"
 
 user_id = Entry("user_id", "INTEGER")
 request_id = Entry("request_id", "INTEGER")
 filegroup_id = Entry("group_id", "INTEGER")
 ip_address_entry = Entry("ip_address", "TEXT")
 filename_entry = Entry("filename", "TEXT")
+city_id = Entry("city_id", "INTEGER")
+country_id = Entry("country_id", "INTEGER")
+ip_range_id = Entry("ip_range_id", "INTEGER")
+
 database_tables = {
     t_user: Table(t_user, user_id, [
-            Entry("ip_address", "TEXT"),
+            Entry("ip_address", "INTEGER"),
             Entry("user_agent", "TEXT"),
             Entry("platform", "TEXT"),
             Entry("browser", "TEXT"),
             Entry("mobile", "INTEGER"),
             Entry("is_human", "INTEGER"),
-            # Entry("country_iso_code_3", "TEXT")
+            ip_range_id,
         ],
         [f"UNIQUE({user_id.name})"]),
-    t_file: Table(t_file, filename_entry, [filegroup_id], [f"UNIQUE({filename_entry.name})"]),
-    t_filegroup: Table(t_filegroup, filegroup_id, [Entry("groupname", "TEXT")], [f"UNIQUE({filegroup_id.name})"]),
+    t_file: Table(t_file, filename_entry,
+            [filegroup_id],
+            [f"UNIQUE({filename_entry.name})"]),
+    t_filegroup: Table(t_filegroup, filegroup_id,
+            [Entry("groupname", "TEXT")],
+            [f"UNIQUE({filegroup_id.name})"]),
     t_request: Table(t_request, request_id, [
-        user_id, filegroup_id, Entry("date", "INTEGER"), Entry("referer", "TEXT"), Entry("status", "INTEGER")
-    ], ["UNIQUE(request_id)"]),
+            user_id,
+            filegroup_id,
+            Entry("date", "INTEGER"),
+            Entry("referer", "TEXT"),
+            Entry("status", "INTEGER")
+        ],
+        ["UNIQUE(request_id)"]),
+    t_ip_range: Table(t_ip_range, ip_range_id, [
+            Entry("lower", "INTEGER"),
+            Entry("upper", "INTEGER"),
+            city_id,
+        ],
+        [f"UNIQUE({ip_range_id.name})"]),
+    t_city: Table(t_city, city_id, [
+            country_id,
+            Entry("name", "TEXT"),
+            Entry("region", "TEXT"),
+        ],
+        [f"UNIQUE({city_id.name})"]),
+    t_country: Table(t_country, country_id, [
+            Entry("name", "TEXT"),
+            Entry("code", "TEXT"),
+        ],
+        [f"UNIQUE({country_id.name})"]),
 }
 
 
@@ -146,17 +180,103 @@ def get_auto_filegroup_str(location_and_dirs:list[tuple[str, str]], auto_group_f
     pdebug("get_auto_filegroup_str: found files:", files, "filegroups_str:", filegroups)
     return filegroups
 
-def create_db(name, filegroup_str="", location_and_dirs:list[tuple[str, str]]=[], auto_group_filetypes=[]):
+def get_country_id(cur:sql.Cursor, name, code, country_tablesize):
+    # countries = sql_select(cur, t_country, [("name", name)])
+    cur.execute(f"SELECT {country_id.name} FROM {t_country} WHERE name = '{name}'")
+    countries = cur.fetchall()
+    if len(countries) > 0:
+        country_id_val = countries[0][0]
+    else:  # insert new country
+        country_id_val = country_tablesize
+        # pdebug(f"update_geoip_tables: Adding country #{country_id_val}, name={name}")
+        cur.execute(f"INSERT INTO {t_country} ({country_id.name}, name, code) VALUES ({country_id_val}, '{name}', '{code}')")
+        country_tablesize += 1
+    return country_id_val, country_tablesize
+
+def get_city_id(cur: sql.Cursor, name, region, country_id, city_tablesize):
+    # cities = sql_select(cur, t_city, [("name", name)])
+    cur.execute(f"SELECT {city_id.name} FROM {t_city} WHERE name = '{name}'")
+    cities = cur.fetchall()
+    if len(cities) > 0:
+        city_id_val = cities[0][0]
+    else:  # insert new city
+        city_id_val = city_tablesize
+        # pdebug(f"update_geoip_tables: Adding city #{city_id_val}, name={row[CITY]}, country={country_id_val}")
+        cur.execute(f"INSERT INTO {t_city} ({city_id.name}, name, region, country_id) VALUES ({city_id_val}, '{name}', '{region}', '{country_id}')")
+        city_tablesize += 1
+    return city_id_val, city_tablesize
+
+def update_geoip_tables(cur: sql.Cursor, geoip_city_csv: str):
+    FROM = 0; TO = 1; CODE = 2; COUNTRY = 3; REGION = 4; CITY = 5
+    ip_range_id_val = 0
+    with open(geoip_city_csv, 'r') as file:
+        # delete all previous data
+        cur.execute(f"DELETE FROM {t_ip_range}")
+        cur.execute(f"VACUUM")
+        csv = reader(file, delimiter=',', quotechar='"')
+
+
+        # guarantees that unkown city/country will have id 0
+        if not sql_exists(cur, t_country, [("name", "Unknown")]):
+            cur.execute(f"INSERT INTO {t_country} ({country_id.name}, name, code) VALUES (0, 'Unknown', 'XX') ")
+        if not sql_exists(cur, t_city, [("name", "Unknown")]):
+            cur.execute(f"INSERT INTO {t_city} ({city_id.name}, name, region) VALUES (0, 'Unknown', 'Unkown') ")
+        country_tablesize = sql_tablesize(cur, t_country)
+        city_tablesize = sql_tablesize(cur, t_city)
+        print(f"Recreating the geoip database from {geoip_city_csv}. This might take a long time...")
+        combine_range_country_id = 0
+        combine_range_lower = -1
+        combine_range_upper = -1
+        combine_range_country_name = ""
+        for row in csv:
+            # these might contain problematic characters (')
+            row[CITY] = sanitize(row[CITY])
+            row[COUNTRY] = sanitize(row[COUNTRY])
+            row[REGION] = sanitize(row[REGION])
+
+            # make sure country exists
+            country_id_val, country_tablesize = get_country_id(cur, row[COUNTRY], row[CODE], country_tablesize)
+            if row[CODE] in settings["get_cities_for_countries"]:
+                # make sure city exists
+                city_id_val, city_tablesize = get_city_id(cur, row[CITY], row[REGION], country_id_val, city_tablesize)
+                pdebug(f"update_ip_range_id: ip_range_id={ip_range_id_val}, Adding range for city={row[CITY]}, country={row[COUNTRY]}, lower={row[FROM]}, upper={row[TO]}")
+                cur.execute(f"INSERT INTO {t_ip_range} ({ip_range_id.name}, lower, upper, {city_id.name}) VALUES ({ip_range_id_val}, {row[FROM]}, {row[TO]}, {city_id_val})")
+                ip_range_id_val += 1
+            else:
+                if combine_range_country_id >= 0:
+                    if combine_range_country_id == country_id_val: combine_range_upper = row[TO]
+                    else:  # new range for country, append
+                        # get id for dummy city
+                        pdebug(f"update_ip_range_id: ip_range_id={ip_range_id_val}, Adding combined range for country={combine_range_country_name}, lower={combine_range_lower}, upper={combine_range_upper}")
+                        city_id_val, city_tablesize = get_city_id(cur, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id, city_tablesize)
+                        cur.execute(f"INSERT INTO {t_ip_range} ({ip_range_id.name}, lower, upper, {city_id.name}) VALUES ({ip_range_id_val}, {combine_range_lower}, {combine_range_upper}, {city_id_val})")
+                        ip_range_id_val += 1
+                    combine_range_country_id = -1
+                if combine_range_country_id < 0 :  # combine with later ranges
+                    combine_range_country_id = country_id_val
+                    combine_range_lower = row[FROM]
+                    combine_range_upper = row[TO]
+                    combine_range_country_name = row[COUNTRY]
+        if combine_range_country_id >= 0:  # last range , append
+            # get id for dummy city
+            pdebug(f"update_ip_range_id: ip_range_id={ip_range_id_val}, Adding combined range for country={combine_range_country_name}, lower={combine_range_lower}, upper={combine_range_upper}")
+            city_id_val, city_tablesize = get_city_id(cur, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id, city_tablesize)
+            cur.execute(f"INSERT INTO {t_ip_range} ({ip_range_id.name}, lower, upper, {city_id.name}) VALUES ({ip_range_id_val}, {combine_range_lower}, {combine_range_upper}, {city_id_val})")
+            ip_range_id_val += 1
+
+
+def create_db(db_name, filegroup_str="", location_and_dirs:list[tuple[str, str]]=[], auto_group_filetypes=[]):
     """
     create the name with database_tables
     """
-    print(f"creating database: '{name}'")
-    conn = sql.connect(f"{name}")
+    print(f"creating database: '{db_name}'")
+    conn = sql.connect(f"{db_name}")
     cursor = conn.cursor()
     for table in database_tables.values():
         cursor.execute(table.create_sql_str())
     filegroup_str = filegroup_str.strip("; ") + ";" + get_auto_filegroup_str(location_and_dirs, auto_group_filetypes)
     create_filegroups(cursor, filegroup_str)
+    cursor.close()
     conn.commit()
     conn.close()
 

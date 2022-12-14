@@ -4,34 +4,35 @@
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>247</x>
-      <y>312</y>
+      <x>299</x>
+      <y>221</y>
       <w>299</w>
-      <h>234</h>
+      <h>247</h>
     </coordinates>
-    <panel_attributes>User
+    <panel_attributes>user
 --
 &lt;&lt;PK&gt;&gt;
 - user_id: INTEGER
 --
-- ip address: TEXT
+- ip_address: INTEGER
 - user agent string: TEXT
 - platform: TEXT
 - browser: TEXT
 - mobile: INTEGER
 - is_human: INTEGER
+- range_id: INTEGER
 style=autoresize</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>975</x>
-      <y>312</y>
+      <x>1040</x>
+      <y>221</y>
       <w>234</w>
       <h>130</h>
     </coordinates>
-    <panel_attributes>FileGroup
+    <panel_attributes>filegroup
 --
 &lt;&lt;PK&gt;&gt;
 - group_id: INTEGER
@@ -43,8 +44,8 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>871</x>
-      <y>312</y>
+      <x>936</x>
+      <y>221</y>
       <w>130</w>
       <h>65</h>
     </coordinates>
@@ -57,12 +58,12 @@ m2=1
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>637</x>
-      <y>299</y>
+      <x>702</x>
+      <y>208</y>
       <w>247</w>
       <h>221</h>
     </coordinates>
-    <panel_attributes>Request
+    <panel_attributes>request
 --
 &lt;&lt;PK&gt;&gt;
 - request_id: INTEGER
@@ -79,26 +80,26 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>533</x>
-      <y>312</y>
-      <w>130</w>
+      <x>585</x>
+      <y>221</y>
+      <w>143</w>
       <h>65</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=1
 m2=n
 </panel_attributes>
-    <additional_attributes>10.0;20.0;80.0;20.0</additional_attributes>
+    <additional_attributes>10.0;20.0;90.0;20.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>975</x>
-      <y>585</y>
+      <x>1040</x>
+      <y>455</y>
       <w>234</w>
       <h>130</h>
     </coordinates>
-    <panel_attributes>File
+    <panel_attributes>file
 --
 &lt;&lt;PK&gt;&gt;
 - name: TEXT
@@ -111,22 +112,22 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1014</x>
-      <y>429</y>
+      <x>1079</x>
+      <y>338</y>
       <w>52</w>
-      <h>182</h>
+      <h>143</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
 m2=1
 </panel_attributes>
-    <additional_attributes>10.0;120.0;10.0;10.0</additional_attributes>
+    <additional_attributes>10.0;90.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>UMLNote</id>
     <coordinates>
-      <x>780</x>
-      <y>156</y>
+      <x>845</x>
+      <y>65</y>
       <w>390</w>
       <h>91</h>
     </coordinates>
@@ -139,12 +140,110 @@ style=autoresize</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>988</x>
-      <y>234</y>
+      <x>1053</x>
+      <y>143</y>
       <w>39</w>
       <h>104</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>10.0;60.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>676</x>
+      <y>611</y>
+      <w>247</w>
+      <h>169</h>
+    </coordinates>
+    <panel_attributes>city
+--
+&lt;&lt;PK&gt;&gt;
+- city_id: INTEGER
+--
+- country_id: INTEGER
+- name: TEXT
+- region: TEXT
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1014</x>
+      <y>611</y>
+      <w>156</w>
+      <h>143</h>
+    </coordinates>
+    <panel_attributes>country
+--
+&lt;&lt;PK&gt;&gt;
+- country_id
+--
+- name: TEXT
+- code: TEXT
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>910</x>
+      <y>637</y>
+      <w>130</w>
+      <h>65</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=n
+</panel_attributes>
+    <additional_attributes>80.0;20.0;10.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>572</x>
+      <y>637</y>
+      <w>130</w>
+      <h>65</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=n
+</panel_attributes>
+    <additional_attributes>80.0;20.0;10.0;20.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>364</x>
+      <y>611</y>
+      <w>221</w>
+      <h>169</h>
+    </coordinates>
+    <panel_attributes>ip_range
+--
+&lt;&lt;PK&gt;&gt;
+- range_id
+--
+- from: INTEGER
+- to: INTEGER
+- city_id: INTEGER
+style=autoresize</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>429</x>
+      <y>455</y>
+      <w>52</w>
+      <h>182</h>
+    </coordinates>
+    <panel_attributes>lt=-
+m1=1
+m2=n
+</panel_attributes>
+    <additional_attributes>10.0;120.0;10.0;10.0</additional_attributes>
   </element>
 </diagram>

@@ -9,7 +9,7 @@ from datetime import datetime as dt
 
 from numpy import empty
 # local
-from regina.db_operation.database import t_request, t_user, t_file, t_filegroup
+from regina.db_operation.database import t_request, t_user, t_file, t_filegroup, t_ip_range, t_city, t_country
 from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
 from regina.utility.utility import pdebug, warning, missing_arg
 from regina.utility.globals import settings
@@ -277,7 +277,7 @@ def get_user_agent_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     # print(ranking)
     return ranking
 
-def get_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
+def get_request_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Cursor, date_condition:str) -> list[tuple[int, str]]:
     """
     1) get all the distinct entries for field_name after min_date_unix_time
     2) call get_name_function with the distinct entry
@@ -286,25 +286,27 @@ def get_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Curs
     :returns [(request_count, name)]
     """
     ranking = []
-    cur.execute(f"SELECT DISTINCT {field_name} FROM {table} WHERE {date}")
+    cur.execute(f"SELECT DISTINCT {field_name} FROM {table} WHERE {date_condition}")
     for name in cur.fetchall():
         name = name[0]
         if whitelist_regex:
             if not fullmatch(whitelist_regex, name):
                 continue
         # ranking.append((sql_get_count_where(cur, t_request, [("group_id", group)]), filename))
-        cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {field_name} = '{name}' AND {date}")
+        cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {field_name} = '{name}' AND {date_condition}")
         ranking.append((cur.fetchone()[0], name))
     ranking.sort()
     # print(ranking)
     return ranking
 
-re_uri_protocol = f"(https?)://"
+# re_uri_protocol = f"(https?)://"
+re_uri_protocol = f"(https?://)?"
 re_uri_ipv4 = r"(?:(?:(?:\d{1,3}\.?){4})(?::\d+)?)"
 # re_uri_ipv6 = ""
 re_uri_domain = r"(?:([^/]+\.)*[^/]+\.[a-zA-Z]{2,})"
 re_uri_location = r"(?:/(.*))?"
 re_uri_full = f"{re_uri_protocol}({re_uri_domain}|{re_uri_ipv4})({re_uri_location})"
+# (https?://)?((?:([^/]+\.)*[^/]+\.[a-zA-Z]{2,})|(?:(?:(?:\d{1,3}\.?){4})(?::\d+)?))((?:/(.*))?)
 
 def cleanup_referer(referer: str) -> str:
     """
@@ -326,7 +328,7 @@ def cleanup_referer(referer: str) -> str:
         if len(domain.split(".")) == 2:  # if domain.tld
             referer = domain.split(".")[0]
     if not settings["referer_ranking_ignore_subdomain"]: referer = subdomains + referer
-    if not settings["referer_ranking_ignore_protocol"]: referer = protocol + "://" + referer
+    if not settings["referer_ranking_ignore_protocol"]: referer = protocol + referer
     if not settings["referer_ranking_ignore_location"]: referer += location
     # pdebug(f"cleanup_referer: cleaned up: {referer}")
     return referer
@@ -344,6 +346,37 @@ def cleanup_referer_ranking(referer_ranking: list[tuple[int, str]]):
         referer_ranking.append((count, referer))
     referer_ranking.sort()
 
+def get_city_and_country_ranking(cur:sql.Cursor, require_humans=True, regex_city_blacklist="", regex_country_blacklist=""):
+    sql_cmd = f"SELECT ci.name, c.code, c.name FROM {t_country} AS c, {t_city} as ci, {t_user} as u, {t_ip_range} as i WHERE u.ip_range_id = i.ip_range_id AND i.city_id = ci.city_id AND ci.country_id = c.country_id"
+    if require_humans: sql_cmd += " AND u.is_human = 1"
+    cur.execute(sql_cmd)
+    pdebug(f"get_city_and_country_ranking: require_humans={require_humans}, regex_city_blacklist='{regex_city_blacklist}', regex_country_blacklist='{regex_country_blacklist}'")
+    cities = cur.fetchall()
+    cities_dict = {}
+    country_dict = {}
+    # TODO: find out why regex_blacklist does not work
+    pdebug(f"get_city_and_country_ranking: found {len(cities)} ip_ranges")
+
+    validate_city_cmd = lambda _ : True
+    validate_country_cmd = lambda _ : True
+    if len(regex_city_blacklist) > 0: validate_city_cmd = lambda city : fullmatch(regex_city_blacklist, city) is None
+    if len(regex_country_blacklist) > 0 : validate_country_cmd = lambda country : fullmatch(regex_country_blacklist, country) is None
+    for i in range(len(cities)):
+        if cities[i][0] in cities_dict:
+            cities_dict[cities[i][0]][0] += 1
+        else:
+            if validate_city_cmd(cities[i][0]):
+                cities_dict[cities[i][0]] = [1, cities[i][1], cities[i][2]]  # count, country code
+        if cities[i][2] in country_dict:
+            country_dict[cities[i][2]] += 1
+        else:
+            if validate_country_cmd(cities[i][2]):
+                country_dict[cities[i][2]] = 1  # count, country code
+    city_ranking = [(v[0], f"{k} ({v[1]})") for k,v in cities_dict.items()]
+    city_ranking.sort()
+    country_ranking = [(v, k) for k,v in country_dict.items()]
+    country_ranking.sort()
+    return city_ranking, country_ranking
 
 #
 # PLOTTING
@@ -365,13 +398,13 @@ def add_labels_at_top_of_bar(xdata, ydata, max_y_val, ax, bar_plot):
     for idx,rect in enumerate(bar_plot):
         ax.text(rect.get_x() + rect.get_width()/2, ydata[idx] - y_offset, round(ydata[idx], 1), ha='center', bbox=dict(facecolor='white', alpha=0.8))
 
-def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="", color_settings:dict|list=[]):
+def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="", color_settings:dict|list=[], figsize=None):
     """
     make a bar plot of the most requested files
     """
     # pdebug(f"plot_ranking: ranking={ranking}")
     if not fig:
-        fig = plt.figure(figsize=None, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
+        fig = plt.figure(figsize=figsize, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
     # create new axis if none is given
     ax = fig.add_subplot(xlabel=xlabel, ylabel=ylabel)
     # fill x y data
@@ -404,36 +437,32 @@ def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="",
     return fig
 
 
-def plot(xdata, ydata, fig=None, ax=None, xlabel="", ylabel="", label="", linestyle='-', marker="", color="blue"):
-    if not fig:
-        fig = plt.figure(figsize=None, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
-    if not ax:
-        ax = fig.add_subplot(xlabel=xlabel, ylabel=ylabel)
-    else:
-        ax = ax.twinx()
-        ax.set_ylabel(ylabel)
-        # ax.tick_params(axis="y", labelcolor="r")
-    ax.plot(xdata, ydata, marker=marker, label=label, linestyle=linestyle, color=color)
-    if label: ax.legend()
-    # if xlim:
-    #     if xlim[0] != xlim[1]:
-    #         ax.set_xlim(*xlim)
+# def plot(xdata, ydata, fig=None, ax=None, xlabel="", ylabel="", label="", linestyle='-', marker="", color="blue", rotate_xlabel=0):
+#     if not fig:
+#         fig = plt.figure(figsize=None, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
+#     if not ax:
+#         ax = fig.add_subplot(xlabel=xlabel, ylabel=ylabel)
+#     else:
+#         ax = ax.twinx()
+#         ax.set_ylabel(ylabel)
+#         # ax.tick_params(axis="y", labelcolor="r")
+#     ax.plot(xdata, ydata, marker=marker, label=label, linestyle=linestyle, color=color)
+#     plt.xticks(rotation=rotate_xlabel)
+#     if label: ax.legend()
+#     return fig, ax
 
-    # if ylim:
-    #     if ylim[0] != ylim[1]:
-    #         ax.set_ylim(*ylim)
-    return fig, ax
-
-def plot2y(xdata, ydata1, ydata2, fig=None, ax1=None, ax2=None, plots=None, xlabel="", ylabel1="", ylabel2="", label1="", label2="", linestyle='-', marker="", color1="blue", color2="orange", grid="major"):
+def plot2y(xdata, ydata1, ydata2, fig=None, ax1=None, ax2=None, plots=None, xlabel="", ylabel1="", ylabel2="", label1="", label2="", linestyle='-', marker="", color1="blue", color2="orange", grid="major", rotate_xlabel=0, figsize=None):
     if not fig:
-        fig = plt.figure(figsize=None, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
+        fig = plt.figure(figsize=figsize, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
     if not (ax1 and ax2):
         ax1 = fig.add_subplot(xlabel=xlabel, ylabel=ylabel1)
         ax2 = ax1.twinx()
         ax2.set_ylabel(ylabel2)
-            # ax.tick_params(axis="y", labelcolor="r")
+    ax1.tick_params(axis="x", rotation=90)
     plot1 = ax1.plot(xdata, ydata1, marker=marker, label=label1, linestyle=linestyle, color=color1)
     plot2 = ax2.plot(xdata, ydata2, marker=marker, label=label2, linestyle=linestyle, color=color2)
+    # ax1.set_xticks(ax1.get_xticks())
+    # ax1.set_xticklabels(xdata, rotation=rotate_xlabel, rotation_mode="anchor")
     # if label1 or label2: ax1.legend()
     if plots: plots += plot1 + plot2
     else: plots = plot1 + plot2
@@ -444,13 +473,6 @@ def plot2y(xdata, ydata1, ydata2, fig=None, ax1=None, ax2=None, plots=None, xlab
             ax1.minorticks_on()
         ax1.grid(visible=True, which=grid, linestyle="-", color="#888")
 
-    # if xlim:
-    #     if xlim[0] != xlim[1]:
-    #         ax.set_xlim(*xlim)
-
-    # if ylim:
-    #     if ylim[0] != ylim[1]:
-    #         ax.set_ylim(*ylim)
     return fig, ax1, ax2, plots
 
 
@@ -470,16 +492,20 @@ def visualize(loaded_settings: dict):
     img_location = settings["img_location"]
     names = {
         # paths
-        "img_file_ranking_last_x_days": f"ranking_all_time_files_last_x_days.{img_filetype}",
-        "img_referer_ranking_last_x_days": f"ranking_all_time_referers_last_x_days.{img_filetype}",
-        "img_browser_ranking_last_x_days": f"ranking_all_time_browsers_last_x_days.{img_filetype}",
-        "img_operating_system_ranking_last_x_days": f"ranking_all_time_operating_systems_last_x_days.{img_filetype}",
+        "img_file_ranking_last_x_days": f"ranking_files_last_x_days.{img_filetype}",
+        "img_referer_ranking_last_x_days": f"ranking_referers_last_x_days.{img_filetype}",
+        "img_countries_last_x_days": f"ranking_countries_last_x_days.{img_filetype}",
+        "img_cities_last_x_days": f"ranking_cities_last_x_days.{img_filetype}",
+        "img_browser_ranking_last_x_days": f"ranking_browsers_last_x_days.{img_filetype}",
+        "img_operating_system_ranking_last_x_days": f"ranking_operating_systems_last_x_days.{img_filetype}",
         "img_users_and_requests_last_x_days": f"user_request_count_daily_last_x_days.{img_filetype}",
 
-        "img_file_ranking_total": f"ranking_all_time_files_total.{img_filetype}",
-        "img_referer_ranking_total": f"ranking_all_time_referers_total.{img_filetype}",
-        "img_browser_ranking_total": f"ranking_all_time_browsers_total.{img_filetype}",
-        "img_operating_system_ranking_total": f"ranking_all_time_operating_systems_total.{img_filetype}",
+        "img_file_ranking_total": f"ranking_files_total.{img_filetype}",
+        "img_referer_ranking_total": f"ranking_referers_total.{img_filetype}",
+        "img_countries_total": f"ranking_countries_total.{img_filetype}",
+        "img_cities_total": f"ranking_cities_total.{img_filetype}",
+        "img_browser_ranking_total": f"ranking_browsers_total.{img_filetype}",
+        "img_operating_system_ranking_total": f"ranking_operating_systems_total.{img_filetype}",
         "img_users_and_requests_total": f"user_request_count_daily_total.{img_filetype}",
         # values
         "mobile_user_percentage_total": 0.0,
@@ -522,7 +548,6 @@ def visualize(loaded_settings: dict):
     days = get_days(cur, last_x_days_str)
     days_strs = [get_where_date_str(at_date=day) for day in days]
 
-
     # ALL DATES
     all_time_str = get_where_date_str(min_date=0)
     # all months in yyyy-mm format
@@ -550,15 +575,29 @@ def visualize(loaded_settings: dict):
         # FILES
         file_ranking = get_file_ranking(cur, date_str)
         if gen_img:
-            fig_file_ranking = plot_ranking(file_ranking, xlabel="Filename/Filegroup", ylabel="Number of requests", color_settings=color_settings_filetypes)
-            fig_file_ranking.savefig(f"{img_dir}/{names[f'img_file_ranking{suffix}']}")
+            fig_file_ranking = plot_ranking(file_ranking, xlabel="Filename/Filegroup", ylabel="Number of requests", color_settings=color_settings_filetypes, figsize=settings["plot_size_broad"])
+            fig_file_ranking.savefig(f"{img_dir}/{names[f'img_file_ranking{suffix}']}", bbox_inches="tight")
 
         # REFERER
-        referer_ranking = get_ranking("referer", t_request, settings["referer_ranking_regex_whitelist"], cur, date_str)
+        referer_ranking = get_request_ranking("referer", t_request, settings["referer_ranking_regex_whitelist"], cur, date_str)
+        pdebug("Referer ranking", referer_ranking)
         cleanup_referer_ranking(referer_ranking)
         if gen_img:
-            fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate)
-            fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_referer_ranking{suffix}']}")
+            fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
+            fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_referer_ranking{suffix}']}", bbox_inches="tight")
+
+        # GEOIP
+        if settings["do_geoip_rankings"]:
+            city_ranking, country_ranking = get_city_and_country_ranking(cur, require_humans=settings["geoip_only_humans"], regex_city_blacklist=settings["city_ranking_regex_blacklist"], regex_country_blacklist=settings["country_ranking_regex_blacklist"])
+            pdebug("Country ranking:", country_ranking)
+            pdebug("City ranking:", city_ranking)
+            if gen_img:
+                fig_referer_ranking = plot_ranking(country_ranking, xlabel="Country", ylabel="Number of users", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
+                fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_countries{suffix}']}", bbox_inches="tight")
+
+                fig_referer_ranking = plot_ranking(city_ranking, xlabel="City", ylabel="Number of users", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
+                fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_cities{suffix}']}", bbox_inches="tight")
+
 
         # USER
         # user_agent_ranking = get_user_agent_ranking(cur, date_str)
@@ -570,8 +609,8 @@ def visualize(loaded_settings: dict):
         date_count = len(date_strs)
         unique_user_ids_dates: list[list[int]] = []
         unique_request_ids_dates: list[list[int]] = []
-        unique_user_ids_human_dates: list[list[int]] = [[] for i in range(date_count)]
-        unique_request_ids_human_dates: list[list[int]] = [[] for i in range(date_count)]
+        unique_user_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
+        unique_request_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
         for i in range(date_count):
             date_str_ = date_strs[i]
             unique_user_ids_dates.append(get_unique_user_ids_for_date(cur, date_str_))
@@ -603,26 +642,19 @@ def visualize(loaded_settings: dict):
         names[f"user_count{suffix}"] = len_list_list(unique_user_ids_dates)
         names[f"request_count{suffix}"] = len_list_list(unique_request_ids_dates)
         if gen_img:
-            fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"])
+            fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="User count", label1="Unique users", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"], rotate_xlabel=-45, figsize=settings["plot_size_broad"])
             if get_humans:
-                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots)
-            fig_daily.savefig(f"{img_dir}/{names[f'img_users_and_requests{suffix}']}")
+                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(user_ids) for user_ids in unique_user_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique users (human)", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots, rotate_xlabel=-45, figsize=settings["plot_size_broad"])
+            fig_daily.savefig(f"{img_dir}/{names[f'img_users_and_requests{suffix}']}", bbox_inches="tight")
 
         # os & browser
         os_ranking, browser_ranking, names[f"mobile_user_percentage{suffix}"] = get_os_browser_mobile_rankings(cur, unique_user_ids_human)
         if gen_img:
-            fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems)
-            fig_os_rating.savefig(f"{img_dir}/{names[f'img_operating_system_ranking{suffix}']}")
-            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browsers", ylabel="Share [%]", color_settings=color_settings_browsers)
-            fig_browser_rating.savefig(f"{img_dir}/{names[f'img_browser_ranking{suffix}']}")
+            fig_os_rating = plot_ranking(os_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_operating_systems, figsize=settings["plot_size_narrow"])
+            fig_os_rating.savefig(f"{img_dir}/{names[f'img_operating_system_ranking{suffix}']}", bbox_inches="tight")
+            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browsers", ylabel="Share [%]", color_settings=color_settings_browsers, figsize=settings["plot_size_narrow"])
+            fig_browser_rating.savefig(f"{img_dir}/{names[f'img_browser_ranking{suffix}']}", bbox_inches="tight")
 
-        # print("File Ranking", file_ranking)
-        # print("referer Ranking", referer_ranking)
-        # print("user agent ranking", user_agent_ranking)
-        # print("Unique Users:", get_unique_user_count(cur))
-        # fig_daily, ax_daily_users = plot(dates, [len(user_ids) for user_ids in unique_user_ids_for_dates], xlabel="Datum", ylabel="Einzigartige Nutzer", label="Einzigartige Nutzer", color="blue")
-        # fig_daily, ax_daily_requests = plot(dates, [len(request_ids) for request_ids in unique_request_ids_for_dates], fig=fig_daily, ax=ax_daily_users, xlabel="Datum", ylabel="Einzigartige Anfragen", label="Einzigartige Anfragen", color="orange")
-        # fig_daily.savefig(f"{img_dir}/daily.{img_filetype}")
     # print("OS ranking", os_ranking)
     # print("Browser ranking", browser_ranking)
     # print("Mobile percentage", names["mobile_user_percentage"])

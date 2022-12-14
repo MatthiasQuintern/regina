@@ -2,13 +2,14 @@
 # print(f"{__file__}: __name__={__name__}, __package__={__package__}, sys.path[0]={path[0]}")
 from sys import exit
 
+from regina.utility.globals import settings
+
 """
 Various utitity
 """
 
-DEBUG = False
 def pdebug(*args, **keys):
-    if DEBUG: print(*args, **keys)
+    if settings["debug"]: print(*args, **keys)
 
 def warning(*w, **k):
     print("Warning:", *w, **k)

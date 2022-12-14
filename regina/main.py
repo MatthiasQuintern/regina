@@ -3,12 +3,14 @@
 # __package__="."
 from sys import argv, exit
 from os.path import isfile
-from regina.db_operation.collect import parse_log, add_requests_to_db
-from regina.db_operation.database import create_db
+import sqlite3 as sql
+from regina.db_operation.collect import parse_log, add_requests_to_db, update_ip_range_id
+from regina.db_operation.database import create_db, update_geoip_tables, t_user
 from regina.db_operation.visualize import visualize
 from regina.utility.settings_manager import read_settings_file
 from regina.utility.globals import settings, version
 from regina.utility.utility import pmessage
+from regina.utility.sql_util import sql_tablesize
 
 """
 start regina, launch either collect or visualize
@@ -17,23 +19,24 @@ TODO:
     - unique user = ip address
     - max requests/time
     - unique request datums unabhängig
-- fix datum im user and request count plot
-- fix datum monat is 1 zu wenig
-- fix ms edge nicht dabei
+X fix datum im user and request count plot
+X fix datum monat is 1 zu wenig
+X fix ms edge nicht dabei
 - für letzten Tag: uhrzeit - requests/users plot
 - checken warum last x days und total counts abweichen
 - länder aus ip addresse
 - "manuelle" datenbank beabeitung in cli:
     - user + alle seine requests löschen
 - user agents:
-    - android vor linux suchen, oder linux durch X11 ersetzen
+    X android vor linux suchen, oder linux durch X11 ersetzen
     - alles was bot drin hat als bot betrachten
 - wenn datenbankgröße zum problem wird:
     - referrer table die die schon zusammengelegten referrer enthält, request verlinkt nur mit id
     - selbes für platforms und browsers
 - test:
     - human detection
-    - referer cleanup
+    X referer cleanup
+X geoip
 - schöne log nachrichten für die cron mail
 - testing!
 """
@@ -41,13 +44,10 @@ TODO:
 
 def help():
     helpstring = """Command line options:
-    --server-name               string
-    --log                       path to the access.log
-    --db                        name of the database
-    --settings["filegroups"]                string describing settings["filegroups"], eg 'name1: file1, file2; name2: file3, file4, file5;'
-    --auto-group-filetypes      comma separated list of filetypes, eg 'css,png,gif'
-    --locs-and_dirs             comma separated list of nginx_location:directory pairs, eg '/:/www/website'
-    --config-file               path to a config file that specifies all the other parameters: param = value, where value has the same formatting as on the command line
+    --config <path>             path to a config file that specifies all the other parameters: param = value, where value has the same formatting as on the command line
+    --update-geoip <path>       path to IP-COUNTRY-REGION-CITY database in csv format
+    --visualize                 generate the visualization website
+    --collect                   fill the database from the nginx access log
     """
     print(helpstring)
 
@@ -68,16 +68,20 @@ def main():
     collect = False
     visualize_ = False
     log_file = ""
+    geoip_city_csv = ""
     # parse args
     i = 1
     while i in range(1, len(argv)):
-        if argv[i] == "--config":
+        if argv[i] in ["--config", "-c"]:
             if len(argv) > i + 1: config_file = argv[i+1]
             else: missing_arg_val(argv[i])
-        if argv[i] == "--log-file":
+        elif argv[i] == "--log-file":
             if len(argv) > i + 1: log_file = argv[i+1]
             else: missing_arg_val(argv[i])
-        elif argv[i] == "--help":
+        if argv[i] == "--update-geoip":
+            if len(argv) > i + 1: geoip_city_csv = argv[i+1]
+            else: missing_arg_val(argv[i])
+        elif argv[i] in ["--help", "-h"]:
             help()
             exit(0)
         elif argv[i] == "--collect":
@@ -87,11 +91,11 @@ def main():
         else:
             pass
         i += 1
-    if not collect and not visualize_:
-        missing_arg("--visualize or --collect")
+    if not (collect or visualize_ or geoip_city_csv):
+        missing_arg("--visualize or --collect or --update-geoip")
 
     if not config_file:
-        missing_arg("--config_file")
+        missing_arg("--config")
     if not isfile(config_file):
         error(f"Not a file: '{config_file}'")
     read_settings_file(config_file, settings)
@@ -107,19 +111,33 @@ def main():
     if isinstance(settings["locs_and_dirs"], str):
         settings["locs_and_dirs"] = [ loc_and_dir.split(":") for loc_and_dir in settings["locs_and_dirs"].split(",") ]
 
+    if not isfile(config_file):
+        error(f"Not a file: '{config_file}'")
 
+
+    if not isfile(settings["db"]):
+        create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
+
+    if geoip_city_csv:
+        if not isfile(geoip_city_csv):
+            error(f"Not a file: '{geoip_city_csv}'")
+        conn = sql.connect(settings['db'], isolation_level=None)  # required vor vacuum
+        cur = conn.cursor()
+        update_geoip_tables(cur, geoip_city_csv)
+        # update users
+        for user_id in range(sql_tablesize(cur, t_user)):
+            update_ip_range_id(cur, user_id)
+        cur.close()
+        conn.commit()
+        conn.close()
     if collect:
         pmessage(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}' and logfile '{settings['access_log']}'")
-        if not isfile(settings["db"]):
-            create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
         requests = parse_log(settings["access_log"])
         add_requests_to_db(requests, settings["db"])
-    elif visualize_:
+    if visualize_:
         pmessage(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}'")
         if not isfile(settings["db"]): error(f"Invalid database path: '{settings['db']}'")
         visualize(settings)
-    else:
-        error("Either --collect --visualize has to be provided")
 
 if __name__ == '__main__':
     main()
