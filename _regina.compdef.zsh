@@ -3,10 +3,10 @@
 _config-file() {
     # list all files that end in .conf
     # -s separator, descritions options
-    _values -s , 'config files' $(find . -type f -name '*.conf')
+    _values 'config files' *.conf
 }
 _csv-file() {
-    _values -s , 'geoip city database as csv' $(find . -type f -name '*.csv')
+    _values 'geoip city database as csv' *.csv *.CSV
 }
 
 _regina() {
