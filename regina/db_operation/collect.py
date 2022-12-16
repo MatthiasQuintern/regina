@@ -175,7 +175,6 @@ def get_os_browser_pairs_from_agent(visitor_agent):
 
 
 def get_ip_range_id(cur: sql.Cursor, ip_address: int):
-    print(f"SELECT {ip_range_id.name} FROM {t_ip_range} WHERE lower <= '{ip_address}' AND to >= '{ip_address}'")
     cur.execute(f"SELECT {ip_range_id.name} FROM {t_ip_range} WHERE '{ip_address}' BETWEEN lower AND upper")
     results = cur.fetchall()
     ip_range_id_val = 0
