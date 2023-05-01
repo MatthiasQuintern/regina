@@ -3,7 +3,7 @@ import sqlite3 as sql
 from csv import reader
 from os import path, listdir
 # local
-from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
+from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_max
 from regina.utility.utility import pdebug
 from regina.utility.globals import settings
 
@@ -48,7 +48,7 @@ t_ip_range = "ip_range"
 visitor_id = Entry("visitor_id", "INTEGER")
 request_id = Entry("request_id", "INTEGER")
 filegroup_id = Entry("group_id", "INTEGER")
-ip_address_entry = Entry("ip_address", "TEXT")
+ip_address_entry = Entry("ip_address", "INTEGER")
 filename_entry = Entry("filename", "TEXT")
 city_id = Entry("city_id", "INTEGER")
 country_id = Entry("country_id", "INTEGER")
@@ -120,7 +120,8 @@ def get_filegroup(filename: str, cursor: sql.Cursor) -> int:
         if group_id_candidates:
             return group_id_candidates[0][0]
         else:  # add new group file filename
-            group_id = sql_tablesize(cursor, t_filegroup)
+            group_id = sql_max(cursor, t_filegroup, "group_id") + 1
+
             # pdebug("new file(group):", group_id, filename)
             # add group
             sql_insert(cursor, t_filegroup, [[group_id, filename]])
@@ -138,7 +139,7 @@ def create_filegroups(cursor: sql.Cursor, filegroup_str: str):
         if sql_exists(cursor, t_filegroup, [("groupname", name)]):
             group_id = sql_select(cursor, t_filegroup, [("groupname", name)])[0][0]
         else:
-            group_id = sql_tablesize(cursor, t_filegroup)
+            group_id = sql_max(cursor, t_filegroup, "group_id") + 1
             sql_insert(cursor, t_filegroup, [(group_id, name)])
         # pdebug("create_filegroups: group_id", group_id)
         # create/edit file

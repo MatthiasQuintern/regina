@@ -17,6 +17,7 @@ settings = {
     "unique_visitor_is_ip_address": False,
     "get_visitor_location": False,
     "get_cities_for_countries": [""],  # list if country codes for which the ip address ranges need to be collected at city level, not country level
+    "hash_ip_address": True,
 
     # VISUALIZATION
     "get_human_percentage": False,

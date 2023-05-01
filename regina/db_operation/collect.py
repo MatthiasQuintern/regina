@@ -4,7 +4,7 @@ from ipaddress import IPv4Address, ip_address
 from time import mktime
 from datetime import datetime as dt
 from regina.db_operation.database import t_request, t_visitor, t_file, t_filegroup, t_ip_range, database_tables, get_filegroup, ip_range_id
-from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize
+from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_max
 from regina.utility.utility import pdebug, warning, pmessage
 from regina.utility.globals import visitor_agent_operating_systems, visitor_agent_browsers, settings
 
@@ -79,31 +79,39 @@ def parse_log(logfile:str) -> list[Request]:
 
 
 def visitor_exists(cursor, request) -> bool:
-    if settings["unique_visitor_is_ip_address"]:
-        return sql_exists(cursor, t_visitor, [("ip_address", request.ip_address)])
+    if settings["hash_ip_address"]:
+        ip_address = hash(request.ip_address)
     else:
-        return sql_exists(cursor, t_visitor, [("ip_address", request.ip_address), ("visitor_agent", request.visitor_agent)])
+        ip_address = request.ip_address
+    if settings["unique_visitor_is_ip_address"]:
+        return sql_exists(cursor, t_visitor, [("ip_address", ip_address)])
+    else:
+        return sql_exists(cursor, t_visitor, [("ip_address", ip_address), ("visitor_agent", request.visitor_agent)])
 
 def get_visitor_id(request: Request, cursor: sql.Cursor) -> int:
     """
     get the visitor_id. Adds the visitor if not already existing
     """
-    # if visitor exists
+    if settings["hash_ip_address"]:
+        ip_address = hash(request.ip_address)
+    else:
+        ip_address = request.ip_address
+
     if visitor_exists(cursor, request):
         if settings["unique_visitor_is_ip_address"]:
-            visitor_id = sql_select(cursor, t_visitor, [("ip_address", request.ip_address)])[0][0]
+            visitor_id = sql_select(cursor, t_visitor, [("ip_address", ip_address)])[0][0]
         else:
-            visitor_id = sql_select(cursor, t_visitor, [("ip_address", request.ip_address), ("visitor_agent", request.visitor_agent)])[0][0]
+            visitor_id = sql_select(cursor, t_visitor, [("ip_address", ip_address), ("visitor_agent", request.visitor_agent)])[0][0]
     else:  # new visitor 
         # new visitor_id is number of elements
-        visitor_id: int = sql_tablesize(cursor, t_visitor)
+        visitor_id = sql_max(cursor, t_visitor, "visitor_id") + 1
         # pdebug("new visitor:", visitor_id, request.ip_address)
         platform, browser, mobile = get_os_browser_pairs_from_agent(request.visitor_agent)
         ip_range_id_val = 0
         if settings["get_visitor_location"]:
             ip_range_id_val = get_ip_range_id(cursor, request.ip_address)
         is_human = 0 # is_visitor_human cannot be called until visitor is in db int(is_visitor_human(cursor, visitor_id))
-        cursor.execute(f"INSERT INTO {t_visitor} (visitor_id, ip_address, visitor_agent, platform, browser, mobile, is_human, {ip_range_id.name}) VALUES ({visitor_id}, '{request.ip_address}', '{request.visitor_agent}', '{platform}', '{browser}', '{int(mobile)}', '{is_human}', '{ip_range_id_val}');")
+        cursor.execute(f"INSERT INTO {t_visitor} (visitor_id, ip_address, visitor_agent, platform, browser, mobile, is_human, {ip_range_id.name}) VALUES ({visitor_id}, '{ip_address}', '{request.visitor_agent}', '{platform}', '{browser}', '{int(mobile)}', '{is_human}', '{ip_range_id_val}');")
     return visitor_id
 
 def is_visitor_human(cur: sql.Cursor, visitor_id: int):
@@ -204,7 +212,7 @@ def add_requests_to_db(requests: list[Request], db_name: str):
     cursor = conn.cursor()
     added_requests = 0
     # check the new visitors later
-    max_visitor_id = sql_tablesize(cursor, t_visitor)
+    max_visitor_id = sql_max(cursor, t_visitor, "visitor_id")
     request_blacklist = settings["request_location_regex_blacklist"]
     for i in range(len(requests)):
         request = requests[i]
@@ -223,11 +231,12 @@ def add_requests_to_db(requests: list[Request], db_name: str):
             pass
         else:
             # pdebug("new request:", request)
-            request_id = sql_tablesize(cursor, t_request)
+            request_id = sql_max(cursor, t_request, "request_id") + 1
             sql_insert(cursor, t_request, [[request_id, visitor_id, group_id, request.time_local, request.referer, request.status]])
             added_requests += 1
     visitor_count = sql_tablesize(cursor, t_visitor)
     for visitor_id in range(max_visitor_id, visitor_count):
+        if not sql_exists(cursor, t_visitor, [(str(visitor_id), "visitor_id")]): continue
         is_human = is_visitor_human(cursor, visitor_id)
         cursor.execute(f"SELECT * FROM {t_visitor} WHERE visitor_id = {visitor_id}")
         # pdebug(f"add_rq_to_db: {visitor_id} is_human? {is_human}, {cursor.fetchall()}")

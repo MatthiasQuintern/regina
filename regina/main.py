@@ -48,6 +48,7 @@ def help():
     --update-geoip <path>       path to IP-COUNTRY-REGION-CITY database in csv format
     --visualize                 generate the visualization website
     --collect                   fill the database from the nginx access log
+    --log-file <path>           use alternate logfile
     """
     print(helpstring)
 

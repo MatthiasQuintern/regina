@@ -2,8 +2,7 @@ import sqlite3 as sql
 """Various utilities"""
 def sanitize(s):
     if type(s) != str: return s
-    return s\
-        .replace("''", "'").replace("'", r"''").strip(" ")
+    return s.replace("'", r"''").strip(" ")
         # .replace('"', r'\"')\
 
 def sql_get_constaint_str(constraints: list[tuple[str, str|int]], logic="AND") -> str:
@@ -34,6 +33,12 @@ def sql_insert(cur: sql.Cursor, table: str, values: list[list]):
 def sql_tablesize(cur: sql.Cursor, table: str) -> int:
     cur.execute(f"SELECT Count(*) FROM {table}")
     return cur.fetchone()[0]
+
+def sql_max(cur: sql.Cursor, table: str, column: str) -> int:
+    cur.execute(f"SELECT MAX({column}) FROM {table}")
+    val = cur.fetchone()[0]
+    if not type(val) == int: val = 0
+    return val
 
 def sql_get_count_where(cur: sql.Cursor, table, constraints) -> int:
     cur.execute(f"SELECT COUNT(*) FROM {table} WHERE {sql_get_constaint_str(constraints)}")

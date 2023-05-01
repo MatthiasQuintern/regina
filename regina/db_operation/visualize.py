@@ -128,7 +128,7 @@ def get_where_date_str(at_date=None, min_date=None, max_date=None):
         else:
             print(f"WARNING: get_where_date_str: Invalid type of argument max_date: {type(max_date)}")
     if s == "":
-        print(f"WARNING: get_where_date_str: no date_str generated. Returing 'date > 0'. at_date={at_date}, min_date={min_date}, max_date={max_date}")
+        print(f"WARNING: get_where_date_str: no date_str generated. Returning 'date > 0'. at_date={at_date}, min_date={min_date}, max_date={max_date}")
         return "date > 0"
     return s.removesuffix(" AND ")
 
@@ -353,7 +353,6 @@ def get_city_and_country_ranking(cur:sql.Cursor, require_humans=True, regex_city
     cities = cur.fetchall()
     cities_dict = {}
     country_dict = {}
-    # TODO: find out why regex_blacklist does not work
     pdebug(f"get_city_and_country_ranking: found {len(cities)} ip_ranges")
 
     validate_city_cmd = lambda _ : True
