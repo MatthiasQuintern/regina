@@ -9,7 +9,7 @@ from datetime import datetime as dt
 
 from numpy import empty
 # local
-from regina.db_operation.database import t_request, t_visitor, t_file, t_filegroup, t_ip_range, t_city, t_country
+from regina.db_operation.database import Database, t_request, t_visitor, t_file, t_filegroup, t_ip_range, t_city, t_country
 from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
 from regina.utility.utility import pdebug, warning, missing_arg
 from regina.utility.globals import settings
@@ -66,7 +66,7 @@ def valid_status(status: int):
 #
 # FILTERS
 #
-def get_os_browser_mobile_rankings(cur: sql.Cursor, visitor_ids: list[int]):
+def get_os_browser_mobile_rankings(db: Database, visitor_ids: list[int]):
     """
     returns [(count, operating_system)], [(count, browser)], mobile_visitor_percentage
     """
@@ -76,8 +76,7 @@ def get_os_browser_mobile_rankings(cur: sql.Cursor, visitor_ids: list[int]):
     browser_count = 0.0
     mobile_ranking = { True: 0.0, False: 0.0 }
     for visitor_id in visitor_ids:
-        cur.execute(f"SELECT platform,browser,mobile FROM {t_visitor} WHERE visitor_id = {visitor_id}")
-        os, browser, mobile = cur.fetchone()
+        os, browser, mobile = db(f"SELECT platform,browser,mobile FROM {t_visitor} WHERE visitor_id = {visitor_id}")[0]
         mobile = bool(mobile)
         if os:
             if os in os_ranking: os_ranking[os] += 1
@@ -134,34 +133,30 @@ def get_where_date_str(at_date=None, min_date=None, max_date=None):
 
 
 # get the earliest date
-def get_earliest_date(cur: sql.Cursor) -> int:
+def get_earliest_date(db: Database) -> int:
     """return the earliest time as unixepoch"""
-    cur.execute(f"SELECT MIN(date) FROM {t_request}")
-    date = cur.fetchone()[0]
+    date = db(f"SELECT MIN(date) FROM {t_request}")[0][0]
     if not isinstance(date, int): return 0
     else: return date
 
 # get the latest date
-def get_latest_date(cur: sql.Cursor) -> int:
+def get_latest_date(db: Database) -> int:
     """return the latest time as unixepoch"""
-    cur.execute(f"SELECT MAX(date) FROM {t_request}")
-    date = cur.fetchone()[0]
+    date = db(f"SELECT MAX(date) FROM {t_request}")[0][0]
     if not isinstance(date, int): return 0
     else: return date
 
 # get all dates
 # the date:str parameter in all these function must be a sqlite constraint
-def get_days(cur: sql.Cursor, date:str) -> list[str]:
+def get_days(db: Database, date:str) -> list[str]:
     """get a list of all dates in yyyy-mm-dd format"""
-    cur.execute(f"SELECT DISTINCT DATE(date, 'unixepoch') FROM {t_request} WHERE {date}")
-    days = [ date[0] for date in cur.fetchall() ]  # fetchall returns tuples (date, )
+    days = [ date[0] for date in db(f"SELECT DISTINCT DATE(date, 'unixepoch') FROM {t_request} WHERE {date}")]  # fetchall returns tuples (date, ) 
     days.sort()
     return days
 
-def get_months(cur: sql.Cursor, date:str) -> list[str]:
+def get_months(db: Database, date:str) -> list[str]:
     """get a list of all dates in yyyy-mm format"""
-    cur.execute(f"SELECT DISTINCT DATE(date, 'unixepoch') FROM {t_request} WHERE {date}")
-    dates = get_days(cur, date)
+    dates = get_days(db, date)
     date_dict = {}
     for date in dates:
         date_without_day = date[0:date.rfind('-')]
@@ -169,14 +164,13 @@ def get_months(cur: sql.Cursor, date:str) -> list[str]:
     return list(date_dict.keys())
 
 
-def get_visitor_agent(cur: sql.Cursor, visitor_id: int):
-    return sql_select(cur, t_visitor, [("visitor_id", visitor_id)])[0][2]
+def get_visitor_agent(db: Database, visitor_id: int):
+    return sql_select(db.cur, t_visitor, [("visitor_id", visitor_id)])[0][2]
 
-def get_unique_visitor_ids_for_date(cur: sql.Cursor, date:str) -> list[int]:
-    cur.execute(f"SELECT DISTINCT visitor_id FROM {t_request} WHERE {date}")
-    return [ visitor_id[0] for visitor_id in cur.fetchall() ]
+def get_unique_visitor_ids_for_date(db: Database, date:str) -> list[int]:
+    return [ visitor_id[0] for visitor_id in db(f"SELECT DISTINCT visitor_id FROM {t_request} WHERE {date}") ]
 
-def get_human_visitors(cur: sql.Cursor, unique_visitor_ids, unique_visitor_ids_human: list):
+def get_human_visitors(db: Database, unique_visitor_ids, unique_visitor_ids_human: list):
     """
     check if they have a known platform AND browser
     check if at least one request did not result in an error (http status >= 400)
@@ -195,22 +189,22 @@ def get_human_visitors(cur: sql.Cursor, unique_visitor_ids, unique_visitor_ids_h
         unique_visitor_ids_human.append(visitor_id)
     # pdebug("get_human_visitors: (2)", unique_visitor_ids_human)
 
-def get_unique_request_ids_for_date(cur: sql.Cursor, date:str):
+def get_unique_request_ids_for_date(db: Database, date:str):
     cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date}")
     return [ request_id[0] for request_id in cur.fetchall()]
 
-def get_unique_request_ids_for_date_and_visitor(cur: sql.Cursor, date:str, visitor_id: int, unique_request_ids_human: list):
+def get_unique_request_ids_for_date_and_visitor(db: Database, date:str, visitor_id: int, unique_request_ids_human: list):
     cur.execute(f"SELECT DISTINCT request_id FROM {t_request} WHERE {date} AND visitor_id = {visitor_id}")
     # all unique requests for visitor_id
     for request_id in cur.fetchall():
         unique_request_ids_human.append(request_id[0])
 
 # get number of requests per day
-def get_request_count_for_date(cur: sql.Cursor, date:str) -> int:
+def get_request_count_for_date(db: Database, date:str) -> int:
     cur.execute(f"SELECT COUNT(*) FROM {t_request} WHERE {date}")
     return cur.fetchone()[0]
 
-def get_unique_visitor_count(cur: sql.Cursor) -> int:
+def get_unique_visitor_count(db: Database) -> int:
     return sql_tablesize(cur, t_visitor)
 
 
@@ -218,7 +212,7 @@ def get_unique_visitor_count(cur: sql.Cursor) -> int:
 #
 # RANKINGS
 #
-def get_file_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
+def get_file_ranking(db: Database, date:str) -> list[tuple[int, str]]:
     global settings
     """
     :returns [(request_count, groupname)]
@@ -255,7 +249,7 @@ def get_file_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
     # print(ranking)
     return ranking
 
-def get_visitor_agent_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]]:
+def get_visitor_agent_ranking(db: Database, date:str) -> list[tuple[int, str]]:
     """
     :returns [(request_count, visitor_agent)]
     """
@@ -276,7 +270,7 @@ def get_visitor_agent_ranking(cur: sql.Cursor, date:str) -> list[tuple[int, str]
     # print(ranking)
     return ranking
 
-def get_request_ranking(field_name: str, table: str, whitelist_regex: str, cur: sql.Cursor, date_condition:str) -> list[tuple[int, str]]:
+def get_request_ranking(field_name: str, table: str, whitelist_regex: str, db: Database, date_condition:str) -> list[tuple[int, str]]:
     """
     1) get all the distinct entries for field_name after min_date_unix_time
     2) call get_name_function with the distinct entry

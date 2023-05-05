@@ -1,3 +1,4 @@
+from matplotlib.pyplot import matplotlib
 from setuptools import setup, find_packages
 
 setup(
@@ -12,8 +13,8 @@ setup(
 
         license="GPLv3",
 
-        packages=find_packages(),
-        install_requires=[],
+        packages=["regina"],
+        install_requires=["matplotlib"],
         python_requires='>=3.10',
 
         classifiers=[

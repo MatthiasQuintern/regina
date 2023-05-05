@@ -4,13 +4,23 @@
 from sys import argv, exit
 from os.path import isfile
 import sqlite3 as sql
-from regina.db_operation.collect import parse_log, add_requests_to_db, update_ip_range_id
-from regina.db_operation.database import create_db, update_geoip_tables, t_visitor
-from regina.db_operation.visualize import visualize
-from regina.utility.settings_manager import read_settings_file
-from regina.utility.globals import settings, version
-from regina.utility.utility import pmessage
-from regina.utility.sql_util import sql_tablesize
+
+if __name__ == "__main__":
+    if __package__ is None:
+        # make relative imports work as described here: https://peps.python.org/pep-0366/#proposed-change
+        __package__ = "regina"
+        import sys
+        from os import path
+        filepath = path.realpath(path.abspath(__file__))
+        sys.path.insert(0, path.dirname(path.dirname(filepath)))
+
+from .db_operation.collect import parse_log, add_requests_to_db, update_ip_range_id
+from .db_operation.database import create_db, update_geoip_tables, t_visitor
+from .db_operation.visualize import visualize
+from .utility.settings_manager import read_settings_file
+from .utility.globals import settings, version
+from .utility.utility import pmessage
+from .utility.sql_util import sql_tablesize
 
 """
 start regina, launch either collect or visualize

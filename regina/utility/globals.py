@@ -1,5 +1,7 @@
 """global variables for regina"""
 
+import os
+
 version = "1.0"
 
 # default settings, these are overwriteable through a config file
@@ -74,3 +76,12 @@ visitor_agent_browsers = [
 ]
 
 
+# set directories
+config_dir   = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),       "regina")
+data_dir     = os.path.join(os.environ.get("XDG_DATA_HOME",   os.path.expanduser("~/.local/share")),  "regina")
+cache_dir    = os.path.join(os.environ.get("XDG_CACHE_HOME",  os.path.expanduser("~/.cache")),        "regina")
+
+# check if environment variables are set and use them if they are
+if 'REGINA_CONFIG_DIR' in os.environ: config_dir = os.environ['REGINA_CONFIG_DIR']
+if 'REGINA_DATA_DIR' in os.environ: data_dir = os.environ['REGINA_DATA_DIR']
+if 'REGINA_CACHE_DIR' in os.environ: cache_dir = os.environ['REGINA_CACHE_DIR']
