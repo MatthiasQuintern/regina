@@ -1,5 +1,11 @@
 import sqlite3 as sql
 """Various utilities"""
+
+def replace_null(s):
+    if not s:
+        return "None"
+    return s
+
 def sanitize(s):
     if type(s) != str: return s
     return s.replace("'", r"''").strip(" ")
