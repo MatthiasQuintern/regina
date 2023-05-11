@@ -5,8 +5,18 @@ from os import path, listdir
 import pkg_resources
 import re
 from datetime import datetime as dt
+
+if __name__ == "__main__":  # make relative imports work as described here: https://peps.python.org/pep-0366/#proposed-change
+    if __package__ is None:
+        __package__ = "regina"
+        import sys
+        from os import path
+        filepath = path.realpath(path.abspath(__file__))
+        print(path.dirname(path.dirname(path.dirname(filepath))))
+        sys.path.insert(0, path.dirname(path.dirname(path.dirname(filepath))))
+
 # local
-from .utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_max
+from .utility.sql_util import replace_null, sanitize, sql_select, sql_exists
 from .utility.utility import pdebug, get_filepath, warning, pmessage
 from .utility.globals import settings
 from .db_operation.request import Request
@@ -15,97 +25,6 @@ from .utility.globals import visitor_agent_operating_systems, visitor_agent_brow
 """
 create reginas database as shown in the uml diagram database.uxf
 """
-
-class Entry:
-    """
-    represents an sql entry
-    type_ is INTEGER, TEXT, REAL...
-    """
-    def __init__(self, name, type_) -> None:
-        self.name = name
-        self.type_ = type_
-    def __repr__(self):
-        return f"[{self.name}] {self.type_}"
-
-class Table:
-    def __init__(self, name, key: Entry, entries: list[Entry]=[], constaints: list[str]=[]):
-        self.name = name
-        self.key = key
-        self.entries =  entries
-        self.constaints = constaints
-    def create_sql_str(self):
-        return f"CREATE TABLE IF NOT EXISTS {self.name}\n({self})\n"
-    def __repr__(self):
-        s = f"{self.key} PRIMARY KEY"
-        for entry in self.entries:
-            s += f", {entry}"
-        for c in self.constaints:
-            s += f", {c}"
-        return s
-
-
-t_request = "request"
-t_file = "file"
-t_filegroup = "filegroup"
-t_visitor = "visitor"
-t_city = "city"
-t_country = "country"
-t_ip_range = "ip_range"
-
-visitor_id = Entry("visitor_id", "INTEGER")
-request_id = Entry("request_id", "INTEGER")
-filegroup_id = Entry("group_id", "INTEGER")
-ip_address_entry = Entry("ip_address", "INTEGER")
-filename_entry = Entry("filename", "TEXT")
-city_id = Entry("city_id", "INTEGER")
-country_id = Entry("country_id", "INTEGER")
-ip_range_id = Entry("ip_range_id", "INTEGER")
-
-database_tables = {
-    t_visitor: Table(t_visitor, visitor_id, [
-            Entry("ip_address", "INTEGER"),
-            Entry("visitor_agent", "TEXT"),
-            Entry("platform", "TEXT"),
-            Entry("browser", "TEXT"),
-            Entry("mobile", "INTEGER"),
-            Entry("is_human", "INTEGER"),
-            ip_range_id,
-        ],
-        [f"UNIQUE({visitor_id.name})"]),
-    t_file: Table(t_file, filename_entry,
-            [filegroup_id],
-            [f"UNIQUE({filename_entry.name})"]),
-    t_filegroup: Table(t_filegroup, filegroup_id,
-            [Entry("groupname", "TEXT")],
-            [f"UNIQUE({filegroup_id.name})"]),
-    t_request: Table(t_request, request_id, [
-            visitor_id,
-            filegroup_id,
-            Entry("date", "INTEGER"),
-            Entry("referer", "TEXT"),
-            Entry("status", "INTEGER")
-        ],
-        ["UNIQUE(request_id)"]),
-    t_ip_range: Table(t_ip_range, ip_range_id, [
-            Entry("lower", "INTEGER"),
-            Entry("upper", "INTEGER"),
-            city_id,
-        ],
-        [f"UNIQUE({ip_range_id.name})"]),
-    t_city: Table(t_city, city_id, [
-            country_id,
-            Entry("name", "TEXT"),
-            Entry("region", "TEXT"),
-        ],
-        [f"UNIQUE({city_id.name})"]),
-    t_country: Table(t_country, country_id, [
-            Entry("name", "TEXT"),
-            Entry("code", "TEXT"),
-        ],
-        [f"UNIQUE({country_id.name})"]),
-}
-
-
 
 class Database:
     def __init__(self, database_path):
@@ -118,6 +37,7 @@ class Database:
             with open(pkg_resources.resource_filename("regina", "sql/create_db.sql"), "r") as file:
                 create_db = file.read()
             self.cur.execute(create_db)
+            self.conn.commit()
 
     def __call__(self, s):
         """execute a command and return fetchall()"""
@@ -127,42 +47,27 @@ class Database:
     #
     # VISITOR
     #
-    def visitor_exists(self, request) -> bool:
-        if settings["hash_ip_address"]:
-            ip_address = hash(request.ip_address)
-        else:
-            ip_address = request.ip_address
-        if settings["unique_visitor_is_ip_address"]:
-            return sql_exists(self.cur, t_visitor, [("ip_address", ip_address)])
-        else:
-            return sql_exists(self.cur, t_visitor, [("ip_address", ip_address), ("visitor_agent", request.visitor_agent)])
-
     def is_visitor_human(self, visitor_id: int):
         """
         check if they have a known platform AND browser
-        check if at least one request did not result in an error (http status >= 400)
+        if settings "human_needs_success": check if at least one request did not result in an error (http status >= 400)
         """
         max_success_status = 400
         if settings["status_300_is_success"]: max_success_status = 300
-        self.cur.execute(f"SELECT browser, platform FROM {t_visitor} WHERE visitor_id = {visitor_id}")
+        self.cur.execute(f"SELECT browser_id, platform_id FROM visitor WHERE visitor_id = {visitor_id}")
         browsers_and_platforms = self.cur.fetchall()
         if len(browsers_and_platforms) != 1:
             pdebug(f"is_visitor_human: {visitor_id} - could not find visitor or found too many")
             return False
-        if not browsers_and_platforms[0][0] in visitor_agent_browsers:
+        browser = self.get_name("browser", browsers_and_platforms[0][0])
+        if not browser in visitor_agent_browsers:
             return False
-        if not browsers_and_platforms[0][1] in visitor_agent_operating_systems:
+        platform = self.get_name("platform", browsers_and_platforms[0][1])
+        if not platform in visitor_agent_operating_systems:
             return False
-        # check if has browser
-        # self.cur.execute(f"SELECT EXISTS (SELECT 1 FROM {t_visitor} WHERE visitor_id = {visitor_id} AND platform IS NOT NULL AND browser IS NOT NULL)")
-        # if no browser and platform
-        # exists = self.cur.fetchone()
-        # if exists is None or exists[0] == 0:
-        #     return False
-        # if human needs successful request
         if settings["human_needs_success"]:
             # check if at least request was successful (status < 400)
-            self.cur.execute(f"SELECT EXISTS (SELECT 1 FROM {t_request} WHERE visitor_id = {visitor_id} AND status < {max_success_status})")
+            self.cur.execute(f"SELECT EXISTS (SELECT 1 FROM request WHERE visitor_id = {visitor_id} AND status < {max_success_status})")
             if self.cur.fetchone()[0] == 1:
                 # pdebug(f"is_visitor_human: Visitor {visitor_id} is human")
                 pass
@@ -171,67 +76,85 @@ class Database:
                 return False
         return True
 
-    def get_visitor_id(self, request: Request) -> int:
+    def get_visitor_id(self, request: Request, insert=True) -> int | None:
         """
         get the visitor_id. Adds the visitor if not already existing
+        """
+        """
+        get the visitor_id:
+        If settings unique_visitor_is_ip_address: Check if visitor with ip address exists
+        Else: check if visitor with ip_address, browser and platform exists
+
+        If visitor does not exist and insert: insert, return id
+        Else: return None
         """
         if settings["hash_ip_address"]:
             ip_address = hash(request.ip_address)
         else:
             ip_address = request.ip_address
 
-        if self.visitor_exists(request):
-            if settings["unique_visitor_is_ip_address"]:
-                visitor_id = sql_select(self.cur, t_visitor, [("ip_address", ip_address)])[0][0]
-            else:
-                visitor_id = sql_select(self.cur, t_visitor, [("ip_address", ip_address), ("visitor_agent", request.visitor_agent)])[0][0]
-        else:  # new visitor 
-            # new visitor_id is number of elements
-            visitor_id = sql_max(self.cur, t_visitor, "visitor_id") + 1
-            # pdebug("new visitor:", visitor_id, request.ip_address)
-            platform, browser, mobile = get_os_browser_pairs_from_agent(request.visitor_agent)
-            ip_range_id_val = 0
+        # if insert == True, ids will be int
+        browser_id: int | None = self.get_id("browser", request.get_browser(), insert=insert)
+        platform_id: int | None = self.get_id("platform", request.get_platform(), insert=insert)
+        constraints = [("ip_address", ip_address)]
+        if not settings["unique_visitor_is_ip_address"]:
+            if browser_id: constraints.append(("browser_id", browser_id))
+            if platform_id: constraints.append(("platform_id", platform_id))
+        require_update_is_human = False
+        if not sql_exists(self.cur, "visitor", constraints):
+            require_update_is_human = True
+            if not insert:
+                return None
+            is_mobile = int(request.get_mobile())
+            ip_range_id = 0
             if settings["get_visitor_location"]:
-                ip_range_id_val = get_ip_range_id(self.cur, request.ip_address)
-            is_human = 0 # is_visitor_human cannot be called until visitor is in db int(is_visitor_human(self.cur, visitor_id))
-            self.cur.execute(f"INSERT INTO {t_visitor} (visitor_id, ip_address, visitor_agent, platform, browser, mobile, is_human, {ip_range_id.name}) VALUES ({visitor_id}, '{ip_address}', '{request.visitor_agent}', '{platform}', '{browser}', '{int(mobile)}', '{is_human}', '{ip_range_id_val}');")
+                ip_range_id = self.get_ip_range_id(request.ip_address)
+            is_human = 0  # is_visitor_human cannot be called until visitor is in db
+            self.cur.execute(f"INSERT INTO visitor (ip_address, ip_range_id, platform_id, browser_id, is_mobile, is_human, ip_range_id) VALUES ('{ip_address}', '{ip_range_id}', '{platform_id}', '{browser_id}', '{is_mobile}', '{is_human}');")
+        visitor_id = sql_select(self.cur, "visitor", constraints)[0][0]
+        # TODO: if requests are not added yet, visitor might not be recognized since it does not have a successful requets yet
+        if require_update_is_human:
+            is_human = self.is_visitor_human(visitor_id)
+            if is_human:
+                self.cur.execute(f"UPDATE visitor SET is_human = 1 WHERE visitor_id = {visitor_id}")
         return visitor_id
 
 
     #
     # REQUEST
     #
-    def request_exists(self, request: Request, visitor_id: int, group_id: int):
-        # get all requests from same visitor to same location
-        # TODO this looks wrong
-        self.cur.execute(f"SELECT request_id, date FROM {t_request} WHERE visitor_id = '{visitor_id}' AND group_id = '{group_id}'")
+    def request_exists(self, request: Request, visitor_id: int, route_id: int):
+        """
+        Check if a request from same visitor was made to same location in the same day, if setting "request_is_same_on_same_day" is True
+        If not, always returns False
+        """
+        if not settings["request_is_same_on_same_day"]: return False
+        # get all requests from same visitor to same route
+        self.cur.execute(f"SELECT request_id, time FROM request WHERE visitor_id = '{visitor_id}' AND  = route_id = '{route_id}'")
+        # check if on same day
         date0 = dt.fromtimestamp(request.time_local).strftime("%Y-%m-%d")
         for request_id, date1 in self.cur.fetchall():
-            if settings["request_is_same_on_same_day"]:
-                date1 = dt.fromtimestamp(date1).strftime("%Y-%m-%d")
-                if date0 == date1:
-                    pdebug(f"request_exists: Request is on same day as request {request_id}")
-                    return True
+            date1 = dt.fromtimestamp(date1).strftime("%Y-%m-%d")
+            if date0 == date1:
+                pdebug(f"request_exists: Request is on same day as request {request_id}")
+                return True
         return False
 
     def add_request(self, request: Request) -> (int | None):
         """returns visitor_id if new request was added, else None"""
-        # skip requests to blacklisted locations
-        if request_blacklist:
-            if re.fullmatch(request_blacklist, request.request_file):
-                # pdebug(f"add_requests_to_db: request on blacklist '{request.request_file}'")
-                return None
-        # pdebug("add_requests_to_db:", i, "request:", request)
         visitor_id = self.get_visitor_id(request)
         self.conn.commit()
-        group_id: int = self.get_filegroup(request.request_file)
+        # browser_id = self.get_id("browser", request.get_browser())
+        # platform_id = self.get_id("platform", request.get_platform())
+        referer_id = self.get_id("referer", request.referer)
+        route_id   = self.get_id("route", request.route)
         # check if request is unique
-        if self.request_exists(request, visitor_id, group_id):
+        if self.request_exists(request, visitor_id, route_id):
             # pdebug("request exists:", request)
             return None
         else:
             # pdebug("new request:", request)
-            sql_insert(t_request, [[None, visitor_id, group_id, request.time_local, request.referer, request.status]])
+            self.cur.execute(f"INSERT INTO request (visitor_id, route_id, referer_id, time, status) VALUES ({visitor_id}, {route_id}, {referer_id}, {request.time_local}, {request.status})")
             return visitor_id
 
     def add_requests(self, requests: list[Request]):
@@ -246,53 +169,50 @@ class Database:
 
         # update the is_human column for all new visitors
         for visitor_id in new_visitors:
-            if not sql_exists(self.cur, t_visitor, [(str(visitor_id), "visitor_id")]): continue
-            is_human = self.is_visitor_human(visitor_id)
-            self.cur.execute(f"SELECT * FROM {t_visitor} WHERE visitor_id = {visitor_id}")
+            # TODO this does not look right
+            if not sql_exists(self.cur, "visitor", [("visitor_id", visitor_id)]): continue
             # pdebug(f"add_rq_to_db: {visitor_id} is_human? {is_human}, {self.cur.fetchall()}")
-            if is_human:
-                self.cur.execute(f"UPDATE {t_visitor} SET is_human = 1 WHERE visitor_id = {visitor_id}")
         self.conn.commit()
         pmessage(f"Collection Summary: Added {len(new_visitors)} new visitors and {added_requests} new requests.")
 
-    #
-    # FILE(GROUP)
-    #
-    def get_filegroup(self, filename: str) -> int:
-        """
-        get the filegroup
-        returns the group where
-        1) filename is the groupname
-        2) the filetype of filename is the groupname
-        3) new group with filename as gorupname
-        """
-        # pdebug(f"get_filegroup: {filename}")
-        if sql_exists(self.cur, t_file, [("filename", filename)]):
-            return sql_select(self.cur, t_file, [("filename", filename)])[0][1]
-        else:
-            suffix = filename.split('.')[-1]
-            self.cur.execute(f"SELECT group_id FROM {t_filegroup} WHERE groupname = '{suffix}'")
-            # self.cur.execute(f"SELECT group_id FROM {t_filegroup} WHERE groupname LIKE '%.{suffix}'")
-            group_id_candidates = self.cur.fetchall()
-            # pdebug(f"get_filegroup: file={filename} candidates={group_id_candidates}")
-            if group_id_candidates:
-                return group_id_candidates[0][0]
-            else:  # add new group file filename
-                group_id = sql_max(self.cur, t_filegroup, "group_id") + 1
 
-                # pdebug("new file(group):", group_id, filename)
-                # add group
-                sql_insert(self.cur, t_filegroup, [[group_id, filename]])
-                # add file
-                sql_insert(self.cur, t_file, [[filename, group_id]])
-                return group_id
+    def get_id(self, table: str, name: str, insert=True) -> int | None:
+        """
+        get the id of name in table
+        if name is not in table:
+            if insert: add and return id
+            else: return None
+        supported tables: platform, browser, referer, route, city
+        """
+        supported_tables = ["platform", "browser", "referer", "route", "city"]
+        if not table in supported_tables: raise ValueError(f"table '{table}' is not supported ({supported_tables})")
+        name = sanitize(replace_null(name))
+        # if non existent, add name
+        if not sql_exists(self.cur, table, [("name", name)]):
+            if not insert: return None
+            self.cur.execute(f"INSERT INTO {table} (name) VALUES ('{name}')")
+        return self(f"SELECT {table}_id FROM {table} WHERE name = '{name}'")[0][0]
+
+    def get_name(self, table: str, id_: int) -> (str | None):
+        """
+        get the name of id in table
+        if id is not in table, returns None
+        supported tables: platform, browser, referer, route, city
+        """
+        supported_tables = ["platform", "browser", "referer", "route", "city"]
+        if not table in supported_tables: raise ValueError(f"table '{table}' is not supported ({supported_tables})")
+        ret = self(f"SELECT name FROM {table} WHERE {table}_id = '{id_}'")
+        if len(ret) == 0: return None
+        # TODO check if this returns tuple or value
+        return ret[0]
+
+
 
     #
     # GEOIP
     #
-    def get_ip_range_id(self, ip_address: int):
-        self.cur.execute(f"SELECT {ip_range_id.name} FROM {t_ip_range} WHERE '{ip_address}' BETWEEN lower AND upper")
-        results = self.cur.fetchall()
+    def get_ip_range_id(self, ip_address: int) -> int:
+        results = self(f"SELECT ip_range_id FROM ip_range WHERE '{ip_address}' BETWEEN low AND high")
         ip_range_id_val = 0
         if len(results) == 0:
             pass
@@ -302,174 +222,114 @@ class Database:
             ip_range_id_val = results[0][0]
         return ip_range_id_val
 
+
     def update_ip_range_id(self, visitor_id: int):
-        self.cur.execute(f"SELECT ip_address FROM {t_visitor} WHERE visitor_id = {visitor_id}")
-        results = self.cur.fetchall()
-        if len(results) == 0:
+        """
+        update the ip_range_id column of visitor with visitor_id
+        """
+        results = self(f"SELECT ip_address FROM visitor WHERE visitor_id = {visitor_id}")
+        if len(results) == 0:  # sanity checks
             warning(f"update_ip_range_id: Invalid visitor_id={visitor_id}")
             return
         elif len(results) > 1:
             warning(f"update_ip_range_id: Found multiple ip_addresses for visitor_id={visitor_id}: results={results}")
             return
         ip_address = results[0][0]
-        self.cur.execute(f"UPDATE {t_visitor} SET {ip_range_id.name} = '{get_ip_range_id(self.cur, ip_address)}' WHERE visitor_id = '{visitor_id}'")
+        self.cur.execute(f"UPDATE visitor SET ip_range_id = '{self.get_ip_range_id(ip_address)}' WHERE visitor_id = '{visitor_id}'")
 
-def create_filegroups(cursor: sql.Cursor, filegroup_str: str):
-    """
-    TODO: make re-usable (alter groups when config changes)
-    """
-    # filegroup_str: 'name1: file1, file2, file3; name2: file33'
-    groups = filegroup_str.strip(";").split(";")
-    pdebug("create_filegroups:", groups)
-    for group in groups:
-        name, vals = group.split(":")
-        # create/get group
-        if sql_exists(cursor, t_filegroup, [("groupname", name)]):
-            group_id = sql_select(cursor, t_filegroup, [("groupname", name)])[0][0]
+
+
+    def get_country_id(self, name, code) -> int:
+        """
+        get the id of country of name
+        if not present, insert and return id
+        """
+        if not sql_exists(self.cur, "country", [("name", name)]):
+            self.cur.execute(f"INSERT INTO country (name, code) VALUES ('{name}', '{code}')")
+        countries = self(f"SELECT country_id FROM country WHERE name = '{name}'")
+        if len(countries) > 0:
+            country_id_val = countries[0][0]
         else:
-            group_id = sql_max(cursor, t_filegroup, "group_id") + 1
-            sql_insert(cursor, t_filegroup, [(group_id, name)])
-        # pdebug("create_filegroups: group_id", group_id)
-        # create/edit file
-        for filename in vals.split(","):
-            if sql_exists(cursor, t_file, [("filename", filename)]):  # if exist, update
-                cursor.execute(f"UPDATE {t_file} SET group_id = {group_id} WHERE filename = '{filename}'")
-            else:
-                sql_insert(cursor, t_file, [[filename, group_id]])
+            warning(f"get_country_id: Could not get country_id for name='{name}'.")
+            return 0
+        assert(type(country_id_val) == int)
+        return country_id_val
 
-def get_files_from_dir_rec(p: str, files: list[str]):
-    """recursivly append all files to files"""
-    pdebug("get_files_from_dir_rec:",p)
-    if path.isfile(p):
-        files.append(p)
-    elif path.isdir(p):
-        for p_ in listdir(p):
-            get_files_from_dir_rec(p + "/" + p_, files)
+    def get_city_id(self, name, region, country_id) -> int:
+        if not sql_exists(self.cur, "city", [("name", name), ("region", region), ("country_id", country_id)]):
+            self.cur.execute(f"INSERT INTO city (name, region, country_id) VALUES ('{name}', '{region}', '{country_id}')")
+        cities = sql_select(self.cur, "city", [("name", name), ("region", region), ("country_id", country_id)])
+        if len(cities) > 0:
+            city_id_val = cities[0][0]
+        else:
+            warning(f"get_city_id: Could not get city_id for name='{name}', region='{region}' and country_id='{country_id}'.")
+            return 0
+        assert(type(city_id_val) == int)
+        return city_id_val
 
-def get_auto_filegroup_str(location_and_dirs:list[tuple[str, str]], auto_group_filetypes:list[str]) -> str:
-    """
-    :param list of nginx locations and the corresponding directories
-    :param auto_filetype_groups list of filetypes for auto grouping
-    """
-    files: list[str] = []
-    start_i = 0
-    if len(location_and_dirs) > 0 and len(location_and_dirs[0]) == 2:
-        for location, dir_ in location_and_dirs:
-            get_files_from_dir_rec(dir_, files)
-            # replace dir_ with location, eg /www/website with /
-            for i in range(start_i, len(files)):
-                files[i] = files[i].replace(dir_, location).replace("//", "/")
-    filegroups = ""
-    # create groups for each filetype
-    for ft in auto_group_filetypes:
-        filegroups += f"{ft}:"
-        for file in files:
-            if file.endswith(f".{ft}"):
-                filegroups += f"{file},"
-        filegroups = filegroups.strip(",") + ";"
-    pdebug("get_auto_filegroup_str: found files:", files, "filegroups_str:", filegroups)
-    return filegroups
+    def update_geoip_tables(self, geoip_city_csv_path: str):
+        """
+        update the geoip data with the contents of the geoip_city_csv file
 
-def get_country_id(cur:sql.Cursor, name, code, country_tablesize):
-    # countries = sql_select(cur, t_country, [("name", name)])
-    cur.execute(f"SELECT {country_id.name} FROM {t_country} WHERE name = '{name}'")
-    countries = cur.fetchall()
-    if len(countries) > 0:
-        country_id_val = countries[0][0]
-    else:  # insert new country
-        country_id_val = country_tablesize
-        # pdebug(f"update_geoip_tables: Adding country #{country_id_val}, name={name}")
-        cur.execute(f"INSERT INTO {t_country} ({country_id.name}, name, code) VALUES ({country_id_val}, '{name}', '{code}')")
-        country_tablesize += 1
-    return country_id_val, country_tablesize
+        Make sure to update the visitor.ip_range_id column for all visitors.
+        In case something changed, they might point to a different city. (won't fix)
+        """
+        # indices for the csv
+        FROM = 0; TO = 1; CODE = 2; COUNTRY = 3; REGION = 4; CITY = 5
+        with open(geoip_city_csv_path, 'r') as file:
+            csv = reader(file, delimiter=',', quotechar='"')
+            # execute only if file could be opened
+            # delete all previous data
+            self.cur.execute(f"DELETE FROM ip_range")
+            self.cur.execute(f"DELETE FROM city")
+            self.cur.execute(f"DELETE FROM country")
+            self.cur.execute(f"VACUUM")
 
-def get_city_id(cur: sql.Cursor, name, region, country_id, city_tablesize):
-    # cities = sql_select(cur, t_city, [("name", name)])
-    cur.execute(f"SELECT {city_id.name} FROM {t_city} WHERE name = '{name}'")
-    cities = cur.fetchall()
-    if len(cities) > 0:
-        city_id_val = cities[0][0]
-    else:  # insert new city
-        city_id_val = city_tablesize
-        # pdebug(f"update_geoip_tables: Adding city #{city_id_val}, name={row[CITY]}, country={country_id_val}")
-        cur.execute(f"INSERT INTO {t_city} ({city_id.name}, name, region, country_id) VALUES ({city_id_val}, '{name}', '{region}', '{country_id}')")
-        city_tablesize += 1
-    return city_id_val, city_tablesize
+            # guarantees that unkown city/country will have id 0
+            self.cur.execute(f"INSERT INTO country (country_id, name, code) VALUES (0, 'Unknown', 'XX') ")
+            self.cur.execute(f"INSERT INTO city (city_id, name, region) VALUES (0, 'Unknown', 'Unkown') ")
+            print(f"Recreating the geoip database from {geoip_city_csv_path}. This might take a long time...")
 
-def update_geoip_tables(cur: sql.Cursor, geoip_city_csv: str):
-    FROM = 0; TO = 1; CODE = 2; COUNTRY = 3; REGION = 4; CITY = 5
-    ip_range_id_val = 0
-    with open(geoip_city_csv, 'r') as file:
-        # delete all previous data
-        cur.execute(f"DELETE FROM {t_ip_range}")
-        cur.execute(f"VACUUM")
-        csv = reader(file, delimiter=',', quotechar='"')
+            # for combining city ranges into a 'City in <Country>' range
+            # country_id for the range that was last added (for combining multiple csv rows in one ip_range)
+            RANGE_DONE = -1
+            combine_range_country_id = RANGE_DONE
+            combine_range_country_name = ""
+            combine_range_low = RANGE_DONE
+            combine_range_high = RANGE_DONE
 
+            def add_range(low, high, city_name, region, country_id):
+                city_id = self.get_city_id(city_name, region, country_id)
+                pdebug(f"update_ip_range_id: Adding range for city={city_name}, country_id={country_id}, low={low}, high={high}")
+                self.cur.execute(f"INSERT INTO ip_range (low, high, city_id) VALUES ({low}, {high}, {city_id})")
+            for row in csv:
+                # these might contain problematic characters (')
+                row[CITY] = sanitize(row[CITY])
+                row[COUNTRY] = sanitize(row[COUNTRY])
+                row[REGION] = sanitize(row[REGION])
 
-        # guarantees that unkown city/country will have id 0
-        if not sql_exists(cur, t_country, [("name", "Unknown")]):
-            cur.execute(f"INSERT INTO {t_country} ({country_id.name}, name, code) VALUES (0, 'Unknown', 'XX') ")
-        if not sql_exists(cur, t_city, [("name", "Unknown")]):
-            cur.execute(f"INSERT INTO {t_city} ({city_id.name}, name, region) VALUES (0, 'Unknown', 'Unkown') ")
-        country_tablesize = sql_tablesize(cur, t_country)
-        city_tablesize = sql_tablesize(cur, t_city)
-        print(f"Recreating the geoip database from {geoip_city_csv}. This might take a long time...")
-        combine_range_country_id = 0
-        combine_range_lower = -1
-        combine_range_upper = -1
-        combine_range_country_name = ""
-        for row in csv:
-            # these might contain problematic characters (')
-            row[CITY] = sanitize(row[CITY])
-            row[COUNTRY] = sanitize(row[COUNTRY])
-            row[REGION] = sanitize(row[REGION])
-
-            # make sure country exists
-            country_id_val, country_tablesize = get_country_id(cur, row[COUNTRY], row[CODE], country_tablesize)
-            if row[CODE] in settings["get_cities_for_countries"]:
-                # make sure city exists
-                city_id_val, city_tablesize = get_city_id(cur, row[CITY], row[REGION], country_id_val, city_tablesize)
-                pdebug(f"update_ip_range_id: ip_range_id={ip_range_id_val}, Adding range for city={row[CITY]}, country={row[COUNTRY]}, lower={row[FROM]}, upper={row[TO]}")
-                cur.execute(f"INSERT INTO {t_ip_range} ({ip_range_id.name}, lower, upper, {city_id.name}) VALUES ({ip_range_id_val}, {row[FROM]}, {row[TO]}, {city_id_val})")
-                ip_range_id_val += 1
-            else:
-                if combine_range_country_id >= 0:
-                    if combine_range_country_id == country_id_val: combine_range_upper = row[TO]
-                    else:  # new range for country, append
-                        # get id for dummy city
-                        pdebug(f"update_ip_range_id: ip_range_id={ip_range_id_val}, Adding combined range for country={combine_range_country_name}, lower={combine_range_lower}, upper={combine_range_upper}")
-                        city_id_val, city_tablesize = get_city_id(cur, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id, city_tablesize)
-                        cur.execute(f"INSERT INTO {t_ip_range} ({ip_range_id.name}, lower, upper, {city_id.name}) VALUES ({ip_range_id_val}, {combine_range_lower}, {combine_range_upper}, {city_id_val})")
-                        ip_range_id_val += 1
-                    combine_range_country_id = -1
-                if combine_range_country_id < 0 :  # combine with later ranges
-                    combine_range_country_id = country_id_val
-                    combine_range_lower = row[FROM]
-                    combine_range_upper = row[TO]
-                    combine_range_country_name = row[COUNTRY]
-        if combine_range_country_id >= 0:  # last range , append
-            # get id for dummy city
-            pdebug(f"update_ip_range_id: ip_range_id={ip_range_id_val}, Adding combined range for country={combine_range_country_name}, lower={combine_range_lower}, upper={combine_range_upper}")
-            city_id_val, city_tablesize = get_city_id(cur, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id, city_tablesize)
-            cur.execute(f"INSERT INTO {t_ip_range} ({ip_range_id.name}, lower, upper, {city_id.name}) VALUES ({ip_range_id_val}, {combine_range_lower}, {combine_range_upper}, {city_id_val})")
-            ip_range_id_val += 1
-
-
-def create_db(db_name, filegroup_str="", location_and_dirs:list[tuple[str, str]]=[], auto_group_filetypes=[]):
-    """
-    create the name with database_tables
-    """
-    print(f"creating database: '{db_name}'")
-    conn = sql.connect(f"{db_name}")
-    cursor = conn.cursor()
-    for table in database_tables.values():
-        cursor.execute(table.create_sql_str())
-    filegroup_str = filegroup_str.strip("; ") + ";" + get_auto_filegroup_str(location_and_dirs, auto_group_filetypes)
-    create_filegroups(cursor, filegroup_str)
-    cursor.close()
-    conn.commit()
-    conn.close()
-
+                # make sure country exists
+                country_id = self.get_country_id(row[COUNTRY], row[CODE])
+                # only add cities for countries the user is interested in
+                if row[CODE] in settings["get_cities_for_countries"]:
+                    add_range(row[FROM], row[TO], row[CITY], row[REGION], country_id)
+                else:
+                    # if continuing 
+                    if combine_range_country_id != RANGE_DONE:
+                        # if continuing previous range, extend the upper range limit
+                        if combine_range_country_id == country_id:
+                            combine_range_high = row[TO]
+                        else:  # new range for country, append
+                            add_range(combine_range_low, combine_range_high, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id)
+                            combine_range_country_id = RANGE_DONE
+                    # not elif, this has to be executed if previous else was executed
+                    if combine_range_country_id == RANGE_DONE :  # currently in new range, combine with later ranges
+                        combine_range_country_id = country_id
+                        combine_range_country_name = row[COUNTRY]
+                        combine_range_low = row[FROM]
+                        combine_range_high = row[TO]
+            if combine_range_country_id >= 0:  # last range , append
+                add_range(combine_range_low, combine_range_high, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id)
 
 if __name__ == '__main__':
-    create_db("test.db")
+    db = Database("test.db")

@@ -13,7 +13,7 @@ class Request:
     def __init__(self, ip_address="", time_local="", request_type="", request_file="", request_protocol="", status="", bytes_sent="", referer="", visitor_agent=""):
         self.ip_address = int(IPv4Address(sanitize(ip_address)))
         self.time_local = 0
-        #[20/Nov/2022:00:47:36 +0100]
+        # turn [20/Nov/2022:00:47:36 +0100] to unix time
         m =  match(r"\[(\d+)/(\w+)/(\d+):(\d+):(\d+):(\d+).*\]", time_local)
         if m:
             g = m.groups()
@@ -29,7 +29,7 @@ class Request:
         else:
             warning(f"Request:__init__: Could not match time: '{time_local}'")
         self.request_type = sanitize(request_type)
-        self.request_file = sanitize(request_file)
+        self.request_route = sanitize(request_file)
         self.request_protocol = sanitize(request_protocol)
         self.status = sanitize(status)
         self.bytes_sent = sanitize(bytes_sent)
@@ -37,9 +37,9 @@ class Request:
         self.visitor_agent = sanitize(visitor_agent)
 
     def __repr__(self):
-        return f"{self.ip_address} - {self.time_local} - {self.request_file} - {self.visitor_agent} - {self.status}"
+        return f"{self.ip_address} - {self.time_local} - {self.request_route} - {self.visitor_agent} - {self.status}"
 
-    def get_os(self):
+    def get_platform(self):
         # for groups in findall(re_visitor_agent, visitor_agent):
         operating_system = ""
         for os in visitor_agent_operating_systems:
