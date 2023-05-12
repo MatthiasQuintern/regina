@@ -12,15 +12,14 @@ if __name__ == "__main__":  # make relative imports work as described here: http
         import sys
         from os import path
         filepath = path.realpath(path.abspath(__file__))
-        print(path.dirname(path.dirname(path.dirname(filepath))))
-        sys.path.insert(0, path.dirname(path.dirname(path.dirname(filepath))))
+        sys.path.insert(0, path.dirname(path.dirname(filepath)))
 
 # local
-from .utility.sql_util import replace_null, sanitize, sql_select, sql_exists
-from .utility.utility import pdebug, get_filepath, warning, pmessage
-from .utility.globals import settings
-from .db_operation.request import Request
-from .utility.globals import visitor_agent_operating_systems, visitor_agent_browsers, settings
+from regina.utility.sql_util import replace_null, sanitize, sql_select, sql_exists
+from regina.utility.utility import pdebug, get_filepath, warning, pmessage, is_blacklisted, is_whitelisted
+from regina.utility.globals import settings
+from regina.data_collection.request import Request
+from regina.utility.globals import visitor_agent_operating_systems, visitor_agent_browsers, settings
 
 """
 create reginas database as shown in the uml diagram database.uxf
@@ -36,13 +35,17 @@ class Database:
             pdebug(f"Database.__init__: Creating database at {database_path}")
             with open(pkg_resources.resource_filename("regina", "sql/create_db.sql"), "r") as file:
                 create_db = file.read()
-            self.cur.execute(create_db)
+            self.cur.executescript(create_db)
             self.conn.commit()
 
     def __call__(self, s):
         """execute a command and return fetchall()"""
         self.cur.execute(s)
         return self.cur.fetchall()
+    def execute(self, s):
+        self.cur.execute(s)
+    def fetchone(self):
+        return self.cur.fetchone()
 
     #
     # VISITOR
@@ -160,9 +163,10 @@ class Database:
     def add_requests(self, requests: list[Request]):
         added_requests = 0
         # check the new visitors later
-        request_blacklist = settings["request_location_regex_blacklist"]
         new_visitors = []
         for i in range(len(requests)):
+            if     is_blacklisted(requests[i].request_route, settings["request_route_blacklist"]): continue
+            if not is_whitelisted(requests[i].request_route, settings["request_route_whitelist"]): continue
             visitor = self.add_request(requests[i])
             if visitor:
                 new_visitors.append(visitor)
@@ -267,12 +271,15 @@ class Database:
         assert(type(city_id_val) == int)
         return city_id_val
 
+
     def update_geoip_tables(self, geoip_city_csv_path: str):
         """
         update the geoip data with the contents of the geoip_city_csv file
 
         Make sure to update the visitor.ip_range_id column for all visitors.
-        In case something changed, they might point to a different city. (won't fix)
+        In case something changed, they might point to a different city.
+
+        TODO: update teh visitor.ip_range_id column to match (potentially) new city ip range
         """
         # indices for the csv
         FROM = 0; TO = 1; CODE = 2; COUNTRY = 3; REGION = 4; CITY = 5
@@ -330,6 +337,44 @@ class Database:
                         combine_range_high = row[TO]
             if combine_range_country_id >= 0:  # last range , append
                 add_range(combine_range_low, combine_range_high, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id)
+
+
+    #
+    # REQUEST
+    #
+    # TIME/DATE
+    def get_earliest_date(self) -> int:
+        """return the earliest time as unixepoch"""
+        date = self(f"SELECT MIN(time) FROM request")[0][0]
+        if not isinstance(date, int): return 0
+        else: return date
+
+    def get_latest_date(self) -> int:
+        """return the latest time as unixepoch"""
+        date = self(f"SELECT MAX(time) FROM request")[0][0]
+        if not isinstance(date, int): return 0
+        else: return date
+
+    def get_months_where(self, date_constraint:str) -> list[str]:
+        """get a list of all dates in yyyy-mm format
+        @param date_constraint parameter sqlite constraint
+        """
+        dates = self.get_days_where(date_constraint)
+        date_dict = {}
+        for date in dates:
+            date_without_day = date[0:date.rfind('-')]
+            date_dict[date_without_day] = 0
+        return list(date_dict.keys())
+
+    def get_days_where(self, date_constraint:str) -> list[str]:
+        """get a list of all dates in yyyy-mm-dd format
+        @param date_constraint parameter sqlite constraint
+        """
+        days = [ date[0] for date in self(f"SELECT DISTINCT DATE(time, 'unixepoch') FROM request WHERE {date_constraint}") ]  # fetchall returns tuples (date, ) 
+        days.sort()
+        return days
+
+
 
 if __name__ == '__main__':
     db = Database("test.db")

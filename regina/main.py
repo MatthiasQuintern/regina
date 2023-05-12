@@ -5,18 +5,19 @@ from sys import argv, exit
 from os.path import isfile
 import sqlite3 as sql
 
-if __name__ == "__main__":
+import argparse
+
+if __name__ == "__main__":  # make relative imports work as described here: https://peps.python.org/pep-0366/#proposed-change
     if __package__ is None:
-        # make relative imports work as described here: https://peps.python.org/pep-0366/#proposed-change
         __package__ = "regina"
         import sys
         from os import path
         filepath = path.realpath(path.abspath(__file__))
         sys.path.insert(0, path.dirname(path.dirname(filepath)))
 
-from .db_operation.collect import parse_log, add_requests_to_db, update_ip_range_id
-from .db_operation.database import create_db, update_geoip_tables, t_visitor
-from .db_operation.visualize import visualize
+from .data_collection.parse_log import parse_log
+from .database import Database
+from .data_visualization import visualize
 from .utility.settings_manager import read_settings_file
 from .utility.globals import settings, version
 from .utility.utility import pmessage
@@ -74,81 +75,56 @@ def error(arg):
     print("Error:", arg)
     exit(1)
 
-def main():
-    config_file = ""
-    collect = False
-    visualize_ = False
-    log_file = ""
-    geoip_city_csv = ""
-    # parse args
-    i = 1
-    while i in range(1, len(argv)):
-        if argv[i] in ["--config", "-c"]:
-            if len(argv) > i + 1: config_file = argv[i+1]
-            else: missing_arg_val(argv[i])
-        elif argv[i] == "--log-file":
-            if len(argv) > i + 1: log_file = argv[i+1]
-            else: missing_arg_val(argv[i])
-        if argv[i] == "--update-geoip":
-            if len(argv) > i + 1: geoip_city_csv = argv[i+1]
-            else: missing_arg_val(argv[i])
-        elif argv[i] in ["--help", "-h"]:
-            help()
-            exit(0)
-        elif argv[i] == "--collect":
-            collect = True
-        elif argv[i] == "--visualize":
-            visualize_ = True
-        else:
-            pass
-        i += 1
-    if not (collect or visualize_ or geoip_city_csv):
-        missing_arg("--visualize or --collect or --update-geoip")
 
-    if not config_file:
-        missing_arg("--config")
-    if not isfile(config_file):
-        error(f"Not a file: '{config_file}'")
-    read_settings_file(config_file, settings)
+def main2():
+    parser = argparse.ArgumentParser(prog="regina")
+    parser.add_argument("--config", "-c",   action="store",         help="path to a config file that specifies all the other parameters", metavar="config-file", required=True)
+    parser.add_argument("--update-geoip",   action="store",         help="path to IP-COUNTRY-REGION-CITY database in csv format", metavar="geoip-csv")
+    parser.add_argument("--visualize",      action="store_true",    help="generate the visualization website")
+    parser.add_argument("--collect",        action="store_true",    help="fill the database from the nginx access log")
+    parser.add_argument("--log-file",       action="store",         help="use alternate logfile than what is set in the config file", metavar="log-file")
+    args = parser.parse_args()
+
+    if not (args.collect or args.visualize or args.update_geoip):
+        parser.error("at least one of --visualize, --collect, or --update-geoip is required.")
+
+    if not path.isfile(args.config):
+        parser.error(f"invalid path to configuration file: '{args.config}'")
+
+    read_settings_file(args.config, settings)
     settings["version"] = version
-    if log_file: settings["access_log"] = log_file
 
+    if args.log_file:
+        settings["access_log"] = args.log_file
 
-    if not settings["server_name"]: missing_arg("server-name")
-    if not settings["access_log"]: missing_arg("log")
-    if not settings["db"]: missing_arg("db")
-    if isinstance(settings["auto_group_filetypes"], str):
-        settings["auto_group_filetypes"] = settings["auto_group_filetypes"].split(",")
-    if isinstance(settings["locs_and_dirs"], str):
-        settings["locs_and_dirs"] = [ loc_and_dir.split(":") for loc_and_dir in settings["locs_and_dirs"].split(",") ]
+    if not settings["server_name"]:
+        error("'server-name' is missing in the configuration file.")
 
-    if not isfile(config_file):
-        error(f"Not a file: '{config_file}'")
+    if not settings["access_log"]:
+        error("'log' is missing in the configuration file.")
 
+    if not settings["db"]:
+        error("'db' is missing in the configuration file.")
 
-    if not isfile(settings["db"]):
-        create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
+    db = Database(settings["db"])
+    # if not isfile(settings["db"]):
+    #     create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
 
-    if geoip_city_csv:
-        if not isfile(geoip_city_csv):
-            error(f"Not a file: '{geoip_city_csv}'")
-        conn = sql.connect(settings['db'], isolation_level=None)  # required vor vacuum
-        cur = conn.cursor()
-        update_geoip_tables(cur, geoip_city_csv)
+    if args.update_geoip:
+        if not isfile(args.update_geoip):
+            error(f"Not a file: '{args.update_geoip}'")
+        db.update_geoip_tables(args.update_geoip)
         # update visitors
-        for visitor_id in range(sql_tablesize(cur, t_visitor)):
-            update_ip_range_id(cur, visitor_id)
-        cur.close()
-        conn.commit()
-        conn.close()
-    if collect:
+        for (visitor_id) in db(f"SELECT visitor_id FROM visitor"):
+            db.update_ip_range_id(visitor_id)
+    if args.collect:
         pmessage(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}' and logfile '{settings['access_log']}'")
         requests = parse_log(settings["access_log"])
-        add_requests_to_db(requests, settings["db"])
-    if visualize_:
+        db.add_requests(requests)
+    if args.visualize:
         pmessage(f"regina version {version} with server-name '{settings['server_name']}', database '{settings['db']}'")
         if not isfile(settings["db"]): error(f"Invalid database path: '{settings['db']}'")
         visualize(settings)
 
 if __name__ == '__main__':
-    main()
+    main2()

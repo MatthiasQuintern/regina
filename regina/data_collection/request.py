@@ -3,14 +3,14 @@ from time import mktime
 from re import fullmatch, match
 from datetime import datetime as dt
 
-from .utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_max
-from .utility.utility import pdebug, warning, pmessage
-from .utility.globals import visitor_agent_operating_systems, visitor_agent_browsers, settings
+from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_max
+from regina.utility.utility import pdebug, warning, pmessage
+from regina.utility.globals import visitor_agent_operating_systems, visitor_agent_browsers, settings
 
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aut", "Sep", "Oct", "Nov", "Dec"]
 
 class Request:
-    def __init__(self, ip_address="", time_local="", request_type="", request_file="", request_protocol="", status="", bytes_sent="", referer="", visitor_agent=""):
+    def __init__(self, ip_address="", time_local="", request_type="", request_route="", request_protocol="", status="", bytes_sent="", referer="", user_agent=""):
         self.ip_address = int(IPv4Address(sanitize(ip_address)))
         self.time_local = 0
         # turn [20/Nov/2022:00:47:36 +0100] to unix time
@@ -29,21 +29,21 @@ class Request:
         else:
             warning(f"Request:__init__: Could not match time: '{time_local}'")
         self.request_type = sanitize(request_type)
-        self.request_route = sanitize(request_file)
+        self.request_route = sanitize(request_route)
         self.request_protocol = sanitize(request_protocol)
         self.status = sanitize(status)
         self.bytes_sent = sanitize(bytes_sent)
         self.referer = sanitize(referer)
-        self.visitor_agent = sanitize(visitor_agent)
+        self.user_agent = sanitize(user_agent)
 
     def __repr__(self):
-        return f"{self.ip_address} - {self.time_local} - {self.request_route} - {self.visitor_agent} - {self.status}"
+        return f"{self.ip_address} - {self.time_local} - {self.request_route} - {self.user_agent} - {self.status}"
 
     def get_platform(self):
         # for groups in findall(re_visitor_agent, visitor_agent):
         operating_system = ""
         for os in visitor_agent_operating_systems:
-            if os in self.visitor_agent:
+            if os in self.user_agent:
                 operating_system = os
                 break
         return operating_system
@@ -51,12 +51,12 @@ class Request:
     def get_browser(self):
         browser = ""
         for br in visitor_agent_browsers:
-            if br in self.visitor_agent:
+            if br in self.user_agent:
                 browser = br
                 break
         return browser
 
     def get_mobile(self):
-        return "Mobi" in self.visitor_agent
+        return "Mobi" in self.user_agent
 
 

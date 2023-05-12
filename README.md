@@ -43,6 +43,13 @@ sudo chmod +x /usr/share/zsh/site-functions/_regina
 ```
 
 # Changelog
+## 2.0
+- Refactored databse code
+- New database format: 
+    - Removed filegroups table
+    - Put referrer, browser and platform in own table to reduze size of the database
+- 
+
 ## 1.0
 - Initial release
 

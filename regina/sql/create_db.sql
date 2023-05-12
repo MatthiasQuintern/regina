@@ -67,5 +67,5 @@ CREATE TABLE IF NOT EXISTS city(
 CREATE TABLE IF NOT EXISTS country(
     country_id  INTEGER PRIMARY KEY,
     name        TEXT UNIQUE,
-    code        TEXT UNIQUE,
+    code        TEXT UNIQUE
 ) STRICT;
