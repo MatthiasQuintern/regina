@@ -1,9 +1,11 @@
-# from sys import path
-# print(f"{__file__}: __name__={__name__}, __package__={__package__}, sys.path[0]={path[0]}")
-# __package__="."
-from sys import argv, exit
-from os.path import isfile
-import sqlite3 as sql
+from sys import exit
+from os import path
+
+try:
+    import sqlite3
+except ImportError as e:
+    print(f"ImportError: {e}")
+    print(f"Your python installation is missing the sqlite3 module")
 
 import argparse
 
@@ -11,7 +13,6 @@ if __name__ == "__main__":  # make relative imports work as described here: http
     if __package__ is None:
         __package__ = "regina"
         import sys
-        from os import path
         filepath = path.realpath(path.abspath(__file__))
         sys.path.insert(0, path.dirname(path.dirname(filepath)))
 
@@ -22,32 +23,7 @@ from .utility.globals import settings, version, config_dir, data_dir
 from .utility.utility import pmessage, pdebug, make_parent_dirs
 
 """
-start regina, launch either collect or visualize
-TODO:
-- optionen:
-    - unique visitor = ip address
-    - max requests/time
-    - unique request datums unabhängig
-X fix datum im visitor and request count plot
-X fix datum monat is 1 zu wenig
-X fix ms edge nicht dabei
-- für letzten Tag: uhrzeit - requests/visitors plot
-- checken warum last x days und total counts abweichen
-- länder aus ip addresse
-- "manuelle" datenbank beabeitung in cli:
-    - visitor + alle seine requests löschen
-- visitor agents:
-    X android vor linux suchen, oder linux durch X11 ersetzen
-    - alles was bot drin hat als bot betrachten
-- wenn datenbankgröße zum problem wird:
-    - referrer table die die schon zusammengelegten referrer enthält, request verlinkt nur mit id
-    - selbes für platforms und browsers
-- test:
-    - human detection
-    X referer cleanup
-X geoip
-- schöne log nachrichten für die cron mail
-- testing!
+start regina, launch either collect, visualize or update_geoip
 """
 
 
@@ -119,12 +95,13 @@ def main():
     #     create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
 
     if args.update_geoip:
-        if not isfile(args.update_geoip):
+        if not path.isfile(args.update_geoip):
             parser.error(f"invalid path to GeoIP database: '{args.update_geoip}'")
         db.update_geoip_tables(args.update_geoip)
         # update visitors
         for visitor_id,  in db(f"SELECT visitor_id FROM visitor"):
             db.update_ip_range_id(visitor_id)
+
     if args.collect:
         pmessage(f"regina version {version} with server-name '{settings['regina']['server_name']}', database '{db_path}' and logfile '{settings['regina']['access_log']}'")
         requests = parse_log(settings['regina']["access_log"])
