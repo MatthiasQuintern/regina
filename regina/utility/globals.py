@@ -289,7 +289,10 @@ cfg.add_section("debug", desc="", entries=[
 settings = ReginaSettings(cfg)
 # settings.load("generated-default.cfg")
 
-if __name__ == "__main__":
+def write_config():
     # export the configuration as generated-default.cfg
-    with open("generated-default.cfg", "w") as file:
+    with open("regina-default.cfg", "w") as file:
         file.write(f"{cfg}")
+
+if __name__ == "__main__":
+    write_config()
