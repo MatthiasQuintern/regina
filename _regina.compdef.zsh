@@ -3,7 +3,7 @@
 _config-file() {
     # list all files that end in .conf
     # -s separator, descritions options
-    _values 'config files' *.conf
+    _values 'config files' *.cfg
 }
 _csv-file() {
     _values 'geoip city database as csv' *.csv *.CSV
