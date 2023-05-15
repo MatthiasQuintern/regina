@@ -354,9 +354,9 @@ def visualize(db: Database):
             # requests
             plt_history.plot_right(single_date_names, request_count_dates, label="Unique requests", color=color_settings_history["requests"])
             if get_humans_visitors:
-                plt_history.plot_left(single_date_names, request_count_human_dates, label="Unique requests (human)", color=color_settings_history["requests_human"])
+                plt_history.plot_right(single_date_names, request_count_human_dates, label="Unique requests (human)", color=color_settings_history["requests_human"])
             if get_new_visitors:
-                plt_history.plot_left(single_date_names, request_count_new_dates, label="Unique requests (new)", color=color_settings_history["requests_new"])
+                plt_history.plot_right(single_date_names, request_count_new_dates, label="Unique requests (new)", color=color_settings_history["requests_new"])
 
             savefig(f"history_visitor_request_{suffix}", plt_history.get_fig())
         # if data_out_dir:  # TODO export history
