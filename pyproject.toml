@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = "regina"
+version = "2.0.0"
+description = "Get website analytics from nginx logs and visualize them"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    { name = "Matthias Quintern", email = "matthias@quintern.xyz" }
+]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "Topic :: Internet :: Log Analysis",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+dependencies = [
+    "matplotlib>=3.6"
+]
+
+[project.urls]
+repository = "https://git.quintern.xyz/MatthiasQuintern/regina"
+documentation = "https://quintern.xyz/en/software/regina.html"
+
+
+[tool.setuptools.packages.find]
+where = ["regina"]
+
+[project.scripts]
+ regina = "regina.main:main"
+ regina-generate-config = "regina.utility.globals:write_config"
