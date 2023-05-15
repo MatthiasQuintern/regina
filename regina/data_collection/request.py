@@ -5,7 +5,7 @@ from datetime import datetime as dt
 
 from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_max
 from regina.utility.utility import pdebug, warning, pmessage
-from regina.utility.globals import visitor_agent_operating_systems, visitor_agent_browsers, settings
+from regina.utility.globals import user_agent_platforms, user_agent_browsers, settings
 
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aut", "Sep", "Oct", "Nov", "Dec"]
 
@@ -28,21 +28,21 @@ class Request:
                 warning(f"Request:__init__: {e}")
         else:
             warning(f"Request:__init__: Could not match time: '{time_local}'")
-        self.request_type = sanitize(request_type)
-        self.request_route = sanitize(request_route)
-        self.request_protocol = sanitize(request_protocol)
-        self.status = sanitize(status)
+        self.type = sanitize(request_type)        # GET, POST, ...
+        self.route = sanitize(request_route)      # eg. /index.html
+        self.protocol = sanitize(request_protocol)    # eg. HTTP/1.1
+        self.status = sanitize(status)            # http status code
         self.bytes_sent = sanitize(bytes_sent)
         self.referer = sanitize(referer)
         self.user_agent = sanitize(user_agent)
 
     def __repr__(self):
-        return f"{self.ip_address} - {self.time_local} - {self.request_route} - {self.user_agent} - {self.status}"
+        return f"{self.ip_address} - {self.time_local} - {self.route} - {self.user_agent} - {self.status}"
 
     def get_platform(self):
         # for groups in findall(re_visitor_agent, visitor_agent):
         operating_system = ""
-        for os in visitor_agent_operating_systems:
+        for os in user_agent_platforms:
             if os in self.user_agent:
                 operating_system = os
                 break
@@ -50,7 +50,7 @@ class Request:
 
     def get_browser(self):
         browser = ""
-        for br in visitor_agent_browsers:
+        for br in user_agent_browsers:
             if br in self.user_agent:
                 browser = br
                 break
