@@ -1,20 +1,18 @@
 # from sys import path
 # print(f"{__file__}: __name__={__name__}, __package__={__package__}, sys.path[0]={path[0]}")
-import sqlite3 as sql
-from sys import exit
-from re import fullmatch
 import matplotlib.pyplot as plt
-from os.path import isdir
+from pickle import dump
+from os import path, makedirs
 from datetime import datetime as dt
 
-from numpy import empty
 # local
 from regina.database import Database
-from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert, sql_tablesize, sql_get_count_where
-from regina.utility.utility import pdebug, warning, missing_arg
+from regina.utility.sql_util import get_date_constraint, sanitize
+from regina.utility.utility import pdebug, warning, error, make_parent_dirs, dict_str
 from regina.utility.globals import settings
-from regina.data_visualization.utility import cleanup_referer, get_where_date_str, get_unique_visitor_ids_for_date, get_unique_request_ids_for_date, append_human_visitors, append_unique_request_ids_for_date_and_visitor
-from regina.data_visualization.ranking import get_city_and_country_ranking, get_platform_browser_mobile_rankings, get_ranking, cleanup_referer_ranking, get_route_ranking
+from regina.data_visualization.utility import len_list_list
+from regina.data_visualization.ranking import get_referer_ranking, cleanup_referer_ranking, get_route_ranking, route_ranking_group_routes, get_browser_ranking, get_platform_ranking, get_city_ranking, get_country_ranking, make_ranking_relative
+import regina.data_visualization.history as h
 
 """
 visualize information from the databse
@@ -53,12 +51,14 @@ color_settings_platforms = {
     palette["blue"]: ["Windows"],
 }
 
-
-def len_list_list(l: list[list]):
-    size = 0
-    for i in range(len(l)):
-        size += len(l[i])
-    return size
+color_settings_history = {
+    "visitors":         "#000050",
+    "visitors_human":   "#3366ff",
+    "visitors_new":     "#66ccff",
+    "requests":         "#770000",
+    "requests_human":   "#ff3500",
+    "requests_new":     "#ff9999",
+}
 
 
 #
@@ -86,18 +86,18 @@ def add_labels_at_top_of_bar(xdata, ydata, max_y_val, ax, bar_plot):
     for idx,rect in enumerate(bar_plot):
         ax.text(rect.get_x() + rect.get_width()/2, ydata[idx] - y_offset, round(ydata[idx], 1), ha='center', bbox=dict(facecolor='white', alpha=0.8))
 
-def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="", color_settings:dict|list=[], figsize=None):
+def plot_ranking(ranking: list[tuple[int or float, str]], fig=None, xlabel="", ylabel="", color_settings:dict|list=[], figsize=None):
     """
     make a bar plot of the ranking
     """
     # pdebug(f"plot_ranking: ranking={ranking}")
     if not fig:
-        fig = plt.figure(figsize=figsize, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
+        fig = plt.figure(figsize=figsize, dpi=settings["plot-generation"]["dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
     # create new axis if none is given
     ax = fig.add_subplot(xlabel=xlabel, ylabel=ylabel)
     # fill x y data
-    if len(ranking) > settings["file_ranking_plot_max_files"]:
-        start_index = len(ranking) - settings["file_ranking_plot_max_files"]
+    if len(ranking) > settings["rankings"]["route_plot_max_routes"]:
+        start_index = len(ranking) - settings["rankings"]["route_plot_max_routes"]
     else: start_index = 0
     x_names = []
     y_counts = []
@@ -120,14 +120,14 @@ def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="",
 
     if len(y_counts) > 0:
         add_vertikal_labels_in_bar_plot(x_names, y_counts[-1], ax, bar)
-        if settings["plot_add_count_label"]: add_labels_at_top_of_bar(x_names, y_counts, y_counts[-1], ax, bar)
+        if settings["plot-generation"]["add_count_label"]: add_labels_at_top_of_bar(x_names, y_counts, y_counts[-1], ax, bar)
     # ax.ylabel(y_counts)
     return fig
 
 
 # def plot(xdata, ydata, fig=None, ax=None, xlabel="", ylabel="", label="", linestyle='-', marker="", color="blue", rotate_xlabel=0):
 #     if not fig:
-#         fig = plt.figure(figsize=None, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
+#         fig = plt.figure(figsize=None, dpi=settings["plot-generation"]["dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
 #     if not ax:
 #         ax = fig.add_subplot(xlabel=xlabel, ylabel=ylabel)
 #     else:
@@ -139,29 +139,39 @@ def plot_ranking(ranking: list[tuple[int, str]], fig=None, xlabel="", ylabel="",
 #     if label: ax.legend()
 #     return fig, ax
 
-def plot2y(xdata, ydata1, ydata2, fig=None, ax1=None, ax2=None, plots=None, xlabel="", ylabel1="", ylabel2="", label1="", label2="", linestyle='-', marker="", color1="blue", color2="orange", grid="major", rotate_xlabel=0, figsize=None):
-    if not fig:
-        fig = plt.figure(figsize=figsize, dpi=settings["plot_dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
-    if not (ax1 and ax2):
-        ax1 = fig.add_subplot(xlabel=xlabel, ylabel=ylabel1)
-        ax2 = ax1.twinx()
-        ax2.set_ylabel(ylabel2)
-    ax1.tick_params(axis="x", rotation=90)
-    plot1 = ax1.plot(xdata, ydata1, marker=marker, label=label1, linestyle=linestyle, color=color1)
-    plot2 = ax2.plot(xdata, ydata2, marker=marker, label=label2, linestyle=linestyle, color=color2)
-    # ax1.set_xticks(ax1.get_xticks())
-    # ax1.set_xticklabels(xdata, rotation=rotate_xlabel, rotation_mode="anchor")
-    # if label1 or label2: ax1.legend()
-    if plots: plots += plot1 + plot2
-    else: plots = plot1 + plot2
-    plt.legend(plots, [ l.get_label() for l in plots])
 
-    if grid == "major" or grid == "minor" or grid == "both":
-        if grid == "minor" or "both":
-            ax1.minorticks_on()
-        ax1.grid(visible=True, which=grid, linestyle="-", color="#888")
+class Plot2Y:
+    def __init__(self, xlabel, ylabel_left, ylabel_right, grid="major", rotate_xlabel=0, figsize=None):
+        self.fig, self.ax1 = plt.subplots(figsize=figsize, dpi=settings["plot-generation"]["dpi"], linewidth=1.0, frameon=True, subplotpars=None, layout=None)
+        self.ax1.set_xlabel(xlabel=xlabel) #, ylabel=ylabel_left)
+        self.ax1.set_ylabel(ylabel=ylabel_left) #, ylabel=ylabel_left)
+        self.ax2 = self.ax1.twinx()
+        self.ax2.set_ylabel(ylabel_right)
+        self.ax1.tick_params(axis="x", rotation=90)
+        self.plots = None
+        if grid == "major" or grid == "minor" or grid == "both":
+            if grid == "minor" or "both":
+                self.ax1.minorticks_on()
+            self.ax1.grid(visible=True, which=grid, linestyle="-", color="#888")
 
-    return fig, ax1, ax2, plots
+    def _plot(self, ax, xdata, ydata, label="", linestyle="-", marker="", color="blue"):
+        plot = ax.plot(xdata, ydata, marker=marker, label=label, linestyle=linestyle, color=color)
+        # ax1.set_xticks(ax1.get_xticks())
+        # ax1.set_xticklabels(xdata, rotation=rotate_xlabel, rotation_mode="anchor")
+        # if label1 or label2: ax1.legend()
+        if self.plots: self.plots += plot
+        else: self.plots = plot
+        plt.legend(self.plots, [ l.get_label() for l in self.plots ])
+
+
+    def plot_left(self, xdata, ydata, label="", linestyle="-", marker="", color="blue"):
+        self._plot(self.ax1, xdata, ydata, label, linestyle, marker, color)
+
+    def plot_right(self, xdata, ydata, label="", linestyle="-", marker="", color="blue"):
+        self._plot(self.ax2, xdata, ydata, label, linestyle, marker, color)
+
+    def get_fig(self):
+        return self.fig
 
 
 #
@@ -172,194 +182,259 @@ def visualize(db: Database):
     This assumes sanity checks have been done
     """
     pdebug("visualizing...")
-    if not settings["db"]:          missing_arg("db")
-    if not settings["server_name"]: missing_arg("server_name")
 
-    img_dir = settings["img_dir"]
-    pdebug("img_dir:", img_dir)
-    img_filetype = settings["img_filetype"]
-    if isdir(img_dir) and img_filetype:
-        gen_img = True
-    else:
-        print(f"Warning: Not generating images since at least one required variable is invalid: img_dir='{img_dir}', img_filetype='{img_filetype}'")
-        gen_img = False
+    def make_dir_if_not_None(d):
+        if d:
+            if not path.isdir(d):
+                makedirs(d)
 
-    img_location = settings["img_location"]
-    names = {
-        # paths
-        "img_route_ranking_last_x_days": f"ranking_routes_last_x_days.{img_filetype}",
-        "img_referer_ranking_last_x_days": f"ranking_referers_last_x_days.{img_filetype}",
-        "img_countries_last_x_days": f"ranking_countries_last_x_days.{img_filetype}",
-        "img_cities_last_x_days": f"ranking_cities_last_x_days.{img_filetype}",
-        "img_browser_ranking_last_x_days": f"ranking_browsers_last_x_days.{img_filetype}",
-        "img_platform_ranking_last_x_days": f"ranking_platforms_last_x_days.{img_filetype}",
-        "img_visitors_and_requests_last_x_days": f"visitor_request_count_daily_last_x_days.{img_filetype}",
+    # plot generation
+    img_out_dir = settings["plot-generation"]["img_out_dir"]
+    make_dir_if_not_None(img_out_dir)
+    img_filetype = settings["plot-generation"]["filetype"]
+    img_location = settings["html-generation"]["img_location"]
+    pdebug(f"visualize: img_out_dir='{img_out_dir}', filetype='{img_filetype}', {img_location}='{img_location}'", lvl=2)
+    if not img_out_dir:
+        pdebug(f"visualize: Not generating images since img_out_dir is None", lvl=1)
 
-        "img_route_ranking_total": f"ranking_routes_total.{img_filetype}",
-        "img_referer_ranking_total": f"ranking_referers_total.{img_filetype}",
-        "img_countries_total": f"ranking_countries_total.{img_filetype}",
-        "img_cities_total": f"ranking_cities_total.{img_filetype}",
-        "img_browser_ranking_total": f"ranking_browsers_total.{img_filetype}",
-        "img_platform_ranking_total": f"ranking_platforms_total.{img_filetype}",
-        "img_visitors_and_requests_total": f"visitor_request_count_daily_total.{img_filetype}",
+    # data export
+    data_out_dir = settings["data-export"]["data_out_dir"]
+    make_dir_if_not_None(data_out_dir)
+    data_filetype = settings["data-export"]["filetype"]
+    pdebug(f"visualize: data_out_dir='{data_out_dir}', filetype='{data_filetype}'", lvl=2)
+    if not data_out_dir:
+        pdebug(f"visualize: Not exporting data since data_out_dir is None", lvl=1)
+
+    if not data_out_dir and not img_out_dir:
+        warning(f"data_out_dir and img_out_dir are both None. No data will be exported and no plots will be generated!")
+
+    html_variables = {
         # values
-        "mobile_visitor_percentage_total": 0.0,
-        "mobile_visitor_percentage_last_x_days": 0.0,
-        "visitor_count_last_x_days": 0,
-        "visitor_count_total": 0,
-        "request_count_last_x_days": 0,
-        "request_count_total": 0,
-        "human_visitor_percentage_last_x_days": 0.0,
-        "human_visitor_percentage_total": 0.0,
-        "human_request_percentage_last_x_days": 0.0,
-        "human_request_percentage_total": 0.0,
+        "visitor_count_last_x_days": "NaN",
+        "visitor_count_total": "NaN",
+        "request_count_last_x_days": "NaN",
+        "request_count_total": "NaN",
+        "visitor_count_human_last_x_days": "NaN",
+        "visitor_count_human_total": "NaN",
+        "request_count_human_last_x_days": "NaN",
+        "request_count_human_total": "NaN",
+        "human_visitor_percentage_last_x_days": "NaN",
+        "human_visitor_percentage_total": "NaN",
+        "human_request_percentage_last_x_days": "NaN",
+        "human_request_percentage_total": "NaN",
+        "mobile_visitor_percentage_total": "NaN",
+        "mobile_visitor_percentage_last_x_days": "NaN",
         # general
-        "regina_version": settings["version"],
-        "server_name": settings["server_name"],
-        "last_x_days": settings["last_x_days"],  # must be after all the things with last_x_days!
-        "earliest_date": "1990-1-1",
-        "generation_date": "1990-1-1 0:0:0",
+        "regina_version":   settings["regina"]["version"],
+        "server_name":      settings["regina"]["server_name"],
+        "last_x_days":      settings["data-visualization"]["last_x_days"],
+        "earliest_date":    "1990-1-1",
+        "generation_date":  "1990-1-1 0:0:0",
     }
 
-    db = Database(database_path=settings["db"])
+    for suffix in ["last_x_days", "total"]:
+        # add all plot paths as variables: img_plot_suffix -> plot_suffix.filetype
+        # not adding img_location or img_out_dir since these names are needed for both
+        html_variables.update((f"img_{plot_}_{suffix}", f"{plot_}_{suffix}.{img_filetype}") for plot_ in ["ranking_platform", "ranking_browser", "ranking_country", "ranking_city", "ranking_referer", "ranking_route", "history_visitor_request"])
 
-    get_humans = settings["get_human_percentage"]
-    # pdebug(f"visualize: settings {settings}")
+    get_humans_visitors = settings["data-visualization"]["history_track_human_visitors"]
+    get_new_visitors = settings["data-visualization"]["history_track_new_visitors"]
+
     # DATE STRINGS
-    earliest_date = db.get_earliest_date()
-    names["earliest_date"] = dt.fromtimestamp(earliest_date).strftime("%Y-%m-%d")
-    names["generation_date"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
-    # LAST_X_DAYS
-    # last_x_days_min_date: latest_date - last_x_days
-    secs_per_day = 86400
-    last_x_days_min_date = db.get_latest_date() - settings["last_x_days"] * secs_per_day
-    last_x_days_constraint = get_where_date_str(min_date=last_x_days_min_date)
-    last_x_days = db.get_days_where(last_x_days_constraint)
-    last_x_days_contraints = [get_where_date_str(at_date=day) for day in last_x_days]
+    earliest_timestamp = db.get_earliest_timestamp()
+    html_variables["earliest_date"] = dt.fromtimestamp(earliest_timestamp).strftime("%Y-%m-%d")
+    html_variables["generation_date"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # ALL DATES
-    all_time_constraint = get_where_date_str(min_date=0)
-    # all months in yyyy-mm format
-    months_all_time = db.get_months_where(all_time_constraint)
-    # sqlite constrict to month string
-    months_strs = []
-    for year_month in months_all_time:
-        year, month = year_month.split("-")
-        # first day of the month
-        min_date  = dt(int(year), int(month), 1).timestamp()
-        month = (int(month) % 12) + 1  # + 1 month
-        year = int(year)
-        if month == 1: year += 1
-        # first day of the next month - 1 sec
-        max_date = dt(year, month, 1).timestamp() - 1
-        months_strs.append(get_where_date_str(min_date=min_date, max_date=max_date))
+    todos: list[tuple[str, tuple[int, int], list[str], list[str], list[tuple[int, int]]]] = []  # suffix, whole_time_timestamps, history_date_constraints, history_date_names, history_date_timestamps
 
-    for i in range(2):
-        suffix = ["_total", "_last_x_days"][i]
-        date_constraint = [all_time_constraint, last_x_days_constraint][i]
-        date_names = [months_all_time, last_x_days][i]
-        date_constraints = [months_strs, last_x_days_contraints][i]
-        assert(len(date_names) == len(date_constraints))
+    now_stamp = int(dt.now().timestamp())
+    total: bool = settings["data-visualization"]["total"]
+    if total:
+        all_time_timestamps = (0, now_stamp)
+        # all months in yyyy-mm format
+        month_names = db.get_months_where(get_date_constraint(min_date=0))
+        month_timestamps = []
+        # sqlite constrict to month string
+        month_constraints = []
+        for year_month in month_names:
+            year, month = year_month.split("-")
+            # timestamp of first day of the month
+            min_date  = int(dt(int(year), int(month), 1).timestamp())
+            month = (int(month) % 12) + 1  # + 1 month
+            year = int(year)
+            # first day of the next month - 1 sec
+            if month == 1: year += 1
+            max_date = int(dt(year, month, 1).timestamp()) - 1
+            month_constraints.append(get_date_constraint(min_date=min_date, max_date=max_date))
+            month_timestamps.append((min_date, max_date))
+        todos.append(("total", all_time_timestamps, month_constraints, month_names, month_timestamps))
 
-        # FILES
+    last_x_days: int = settings["data-visualization"]["last_x_days"]
+    if last_x_days > 0:
+        secs_per_day   = 86400
+        last_x_days_min_date      = db.get_latest_timestamp() - last_x_days * secs_per_day
+        last_x_days_timestamps = (last_x_days_min_date, now_stamp)
+        last_x_days_constraint    = get_date_constraint(min_date=last_x_days_min_date)
+        days                = db.get_days_where(last_x_days_constraint)  # yyyy-mm-dd
+        day_constrains      = [ get_date_constraint(at_date=day) for day in days ]
+        day_timestamps  = []
+        for day in days:
+            year, month, day = day.split("-")
+            min_date  = int(dt(int(year), int(month), int(day)).timestamp())
+            max_date = min_date + secs_per_day
+            day_timestamps.append((min_date, max_date))
+
+        todos.append(("last_x_days", last_x_days_timestamps, day_constrains, days, day_timestamps))
+
+    def export_ranking(name: str, column_name: str, ranking: list[tuple[int or float, str]]):
+        filename = f"{data_out_dir}/{name}.{data_filetype}"
+        if data_filetype == "pkl":
+            pdebug(f"visualize: Exporting {name} as pickle to '{filename}'", lvl=2)
+            with open(filename, "wb") as file:
+                dump(ranking, file)
+        elif data_filetype == "csv":
+            pdebug(f"visualize: Exporting {name} as csv to '{filename}'", lvl=2)
+            s = f'"{name}"\n'
+            s += f'"count","{column_name}"\n'
+            for count, item in ranking:
+                s += f'{count},"{item}"\n'
+            s = s.strip("\n")
+            with open(filename, "w") as file:
+                file.write(s)
+        else:
+            error(f"visualize: Unsupported data filetype: '{data_filetype}'")
+
+    def savefig(name: str, figure):
+        filename = f"{img_out_dir}/{name}.{img_filetype}"
+        pdebug(f"visualize: Saving plot for {name} as '{filename}'")
+        figure.savefig(filename, bbox_inches="tight")  # bboximg_inches="tight"
+
+
+    pdebug(f"visualize: total={total}, last_x_days={last_x_days}", lvl=3)
+    for suffix, whole_timespan_timestamps, single_date_constraints, single_date_names, single_date_timestamps in todos:
+        assert(len(single_date_names) == len(single_date_constraints))
+
+        # STATISTICS
+        visitor_count = h.get_visitor_count_between(db, whole_timespan_timestamps)
+        request_count = h.get_request_count_between(db, whole_timespan_timestamps)
+        html_variables[f"visitor_count_{suffix}"] = visitor_count
+        html_variables[f"request_count_{suffix}"] = request_count
+
+        if get_humans_visitors:
+            visitor_count_human = h.get_visitor_count_between(db, whole_timespan_timestamps, only_human=True)
+            request_count_human = h.get_request_count_between(db, whole_timespan_timestamps, only_human=True)
+            html_variables[f"visitor_count_human_{suffix}"] = visitor_count_human
+            html_variables[f"request_count_human_{suffix}"] = request_count_human
+            try:                        html_variables[f"human_visitor_percentage_{suffix}"] = 100.0 * visitor_count_human / visitor_count
+            except ZeroDivisionError:   pass
+            try:                        html_variables[f"human_request_percentage_{suffix}"] = 100.0 * request_count_human / request_count
+            except ZeroDivisionError:   pass
+            try:                        html_variables[f"mobile_visitor_percentage_{suffix}"] = 100.0 * h.get_mobile_visitor_count_between(db, whole_timespan_timestamps, only_human=True) / visitor_count_human
+            except ZeroDivisionError:   pass
+
+        # HISTORY
+        date_count = len(single_date_constraints)
+        visitor_count_dates = [ h.get_visitor_count_between(db, single_date_timestamps[i], only_human=False) for i in range(date_count) ]
+        request_count_dates = [ h.get_request_count_between(db, single_date_timestamps[i], only_human=False) for i in range(date_count) ]
+
+        visitor_count_human_dates = [ h.get_visitor_count_between(db, single_date_timestamps[i], only_human=True) for i in range(date_count) ]
+        request_count_human_dates = [ h.get_request_count_between(db, single_date_timestamps[i], only_human=True) for i in range(date_count) ]
+
+        visitor_count_new_dates = [ h.get_new_visitor_count_between(db, single_date_timestamps[i]) for i in range(date_count) ]
+        request_count_new_dates = [ h.get_request_from_new_visitor_count_between(db, single_date_timestamps[i]) for i in range(date_count) ]
+
+        if img_out_dir:
+            plt_history = Plot2Y(xlabel="Date", ylabel_left="Visitor count", ylabel_right="Request count", rotate_xlabel=-45, figsize=settings["plot-generation"]["size_broad"])
+            # visitors, plot on correct order
+            plt_history.plot_left(single_date_names, visitor_count_dates, label="Unique visitors", color=color_settings_history["visitors"])
+            if get_humans_visitors:
+                plt_history.plot_left(single_date_names, visitor_count_human_dates, label="Unique visitors (human)", color=color_settings_history["visitors_human"])
+            if get_new_visitors:
+                plt_history.plot_left(single_date_names, visitor_count_new_dates, label="Unique visitors (new)", color=color_settings_history["visitors_new"])
+            # requests
+            plt_history.plot_right(single_date_names, request_count_dates, label="Unique requests", color=color_settings_history["requests"])
+            if get_humans_visitors:
+                plt_history.plot_left(single_date_names, request_count_human_dates, label="Unique requests (human)", color=color_settings_history["requests_human"])
+            if get_new_visitors:
+                plt_history.plot_left(single_date_names, request_count_new_dates, label="Unique requests (new)", color=color_settings_history["requests_new"])
+
+            savefig(f"history_visitor_request_{suffix}", plt_history.get_fig())
+        # if data_out_dir:  # TODO export history
+        #     s = ""
+
+        # ROUTES
         # TODO handle groups
-        file_ranking = get_route_ranking(db, date_constraint)
-        if gen_img:
-            fig_file_ranking = plot_ranking(file_ranking, xlabel="Route Name", ylabel="Number of requests", color_settings=color_settings_filetypes, figsize=settings["plot_size_broad"])
-            fig_file_ranking.savefig(f"{img_dir}/{names[f'img_route_ranking{suffix}']}", bbox_inches="tight")
+        route_ranking = get_route_ranking(db, whole_timespan_timestamps)
+        route_ranking = route_ranking_group_routes(route_ranking)
+        pdebug("visualize: route ranking", route_ranking, lvl=3)
+        if img_out_dir:
+            fig_file_ranking = plot_ranking(route_ranking, xlabel="Route", ylabel="Number of requests", color_settings=color_settings_filetypes, figsize=settings["plot-generation"]["size_broad"])
+            savefig(f"ranking_route_{suffix}", fig_file_ranking)
+        if data_out_dir:
+            export_ranking(f"ranking_route_{suffix}", "route", route_ranking)
+
 
         # REFERER
-        referer_ranking = get_ranking(db, "request", "referer", date_constraint, settings["referer_ranking_whitelist"], settings["referer_ranking_whitelist"])
-        pdebug("Referer ranking", referer_ranking)
+        referer_ranking = get_referer_ranking(db, whole_timespan_timestamps)
         cleanup_referer_ranking(referer_ranking)
-        if gen_img:
-            fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
-            fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_referer_ranking{suffix}']}", bbox_inches="tight")
+        pdebug("visualize: referer ranking", referer_ranking, lvl=3)
+        if img_out_dir:
+            fig_referer_ranking = plot_ranking(referer_ranking, xlabel="HTTP Referer", ylabel="Number of requests", color_settings=color_settings_alternate, figsize=settings["plot-generation"]["size_broad"])
+            savefig(f"ranking_referer_{suffix}", fig_referer_ranking)
+        if data_out_dir:
+            export_ranking(f"ranking_referer_{suffix}", "referer", referer_ranking)
 
         # GEOIP
-        if settings["do_geoip_rankings"]:
-            city_ranking, country_ranking = get_city_and_country_ranking(db, require_humans=settings["geoip_only_humans"])
-            pdebug("Country ranking:", country_ranking)
-            pdebug("City ranking:", city_ranking)
-            if gen_img:
-                fig_referer_ranking = plot_ranking(country_ranking, xlabel="Country", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
-                fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_countries{suffix}']}", bbox_inches="tight")
-
-                fig_referer_ranking = plot_ranking(city_ranking, xlabel="City", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot_size_broad"])
-                fig_referer_ranking.savefig(f"{img_dir}/{names[f'img_cities{suffix}']}", bbox_inches="tight")
-
-
-        # USER
-        # visitor_agent_ranking = get_visitor_agent_ranking(cur, date_str)
-        # for the time span
-        unique_visitor_ids = get_unique_visitor_ids_for_date(db, date_constraint)
-        unique_visitor_ids_human = []
-        append_human_visitors(db, unique_visitor_ids, unique_visitor_ids_human)
-        # for each date
-        date_count = len(date_constraints)
-        unique_visitor_ids_dates: list[list[int]] = []
-        unique_request_ids_dates: list[list[int]] = []
-        unique_visitor_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
-        unique_request_ids_human_dates: list[list[int]] = [[] for _ in range(date_count)]
-        for i in range(date_count):
-            date_constraint_ = date_constraints[i]
-            unique_visitor_ids_dates.append(get_unique_visitor_ids_for_date(db, date_constraint_))
-            unique_request_ids_dates.append(get_unique_request_ids_for_date(db, date_constraint_))
-            if get_humans:
-                # empty_list = []
-                # unique_visitor_ids_human_dates.append(empty_list)
-                append_human_visitors(db, unique_visitor_ids_dates[i], unique_visitor_ids_human_dates[i])
-                # unique_request_ids_human_dates.append(list())
-                for human in unique_visitor_ids_human_dates[i]:
-                    append_unique_request_ids_for_date_and_visitor(db, date_constraint_, human, unique_request_ids_human_dates[i])
-        # print("\n\tuu", unique_visitor_ids_dates, "\n\tur",unique_request_ids_dates, "\n\tuuh", unique_visitor_ids_human_dates, "\n\turh", unique_request_ids_human_dates)
-        # pdebug("uui",   unique_visitor_ids)
-        # pdebug("uuih",  unique_visitor_ids_human)
-        # pdebug("uuid",  unique_visitor_ids_dates)
-        # pdebug("uuidh", unique_visitor_ids_human_dates)
-        # pdebug("urid",  unique_request_ids_dates)
-        # pdebug("uridh", unique_visitor_ids_human_dates)
-        # pdebug(f"human_visitor_precentage: len_list_list(visitor_ids)={len_list_list(unique_visitor_ids_dates)}, len_list_list(visitor_ids_human)={len_list_list(unique_visitor_ids_human_dates)}")
-        if get_humans:
-            try:
-                names[f"human_visitor_percentage{suffix}"] = round(100 * len_list_list(unique_visitor_ids_human_dates) / len_list_list(unique_visitor_ids_dates), 2)
-            except:
-                names[f"human_visitor_percentage{suffix}"] = -1.0
-            try:
-                names[f"human_request_percentage{suffix}"] = round(100 * len_list_list(unique_request_ids_human_dates) / len_list_list(unique_request_ids_dates), 2)
-            except:
-                names[f"human_request_percentage{suffix}"] = -1.0
-        names[f"visitor_count{suffix}"] = len_list_list(unique_visitor_ids_dates)
-        names[f"request_count{suffix}"] = len_list_list(unique_request_ids_dates)
-        if gen_img:
-            fig_daily, ax1, ax2, plots = plot2y(date_names, [len(visitor_ids) for visitor_ids in unique_visitor_ids_dates], [len(request_ids) for request_ids in unique_request_ids_dates], xlabel="Date", ylabel1="Visitor count", label1="Unique visitors", ylabel2="Request count", label2="Unique requests", color1=palette["red"], color2=palette["blue"], rotate_xlabel=-45, figsize=settings["plot_size_broad"])
-            if get_humans:
-                fig_daily, ax1, ax2, plots = plot2y(date_names, [len(visitor_ids) for visitor_ids in unique_visitor_ids_human_dates], [len(request_ids) for request_ids in unique_request_ids_human_dates], label1="Unique visitors (human)", label2="Unique requests (human)", color1=palette["orange"], color2=palette["green"], fig=fig_daily, ax1=ax1, ax2=ax2, plots=plots, rotate_xlabel=-45, figsize=settings["plot_size_broad"])
-            fig_daily.savefig(f"{img_dir}/{names[f'img_visitors_and_requests{suffix}']}", bbox_inches="tight")
+        if settings["data-collection"]["get_visitor_location"]:
+            country_ranking = get_country_ranking(db, whole_timespan_timestamps, only_human=settings["rankings"]["geoip_only_humans"])
+            pdebug("visualize: country ranking:", country_ranking, lvl=3)
+            city_ranking = get_city_ranking(db, whole_timespan_timestamps, add_country_code=settings["rankings"]["city_add_country_code"], only_human=settings["rankings"]["geoip_only_humans"])
+            pdebug("visualize: city ranking:", city_ranking, lvl=3)
+            if img_out_dir:
+                fig_referer_ranking = plot_ranking(country_ranking, xlabel="Country", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot-generation"]["size_broad"])
+                savefig(f"ranking_country_{suffix}", fig_referer_ranking)
+                fig_referer_ranking = plot_ranking(city_ranking, xlabel="City", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot-generation"]["size_broad"])
+                savefig(f"ranking_city_{suffix}", fig_referer_ranking)
+            if data_out_dir:
+                export_ranking(f"ranking_country_{suffix}", "country", country_ranking)
+                export_ranking(f"ranking_city_{suffix}", "city", city_ranking)
 
         # os & browser
-        platform_ranking, browser_ranking, names[f"mobile_visitor_percentage{suffix}"] = get_platform_browser_mobile_rankings(db, unique_visitor_ids_human)
-        if gen_img:
-            fig_os_rating = plot_ranking(platform_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_platforms, figsize=settings["plot_size_narrow"])
-            fig_os_rating.savefig(f"{img_dir}/{names[f'img_platform_ranking{suffix}']}", bbox_inches="tight")
-            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browser", ylabel="Share [%]", color_settings=color_settings_browsers, figsize=settings["plot_size_narrow"])
-            fig_browser_rating.savefig(f"{img_dir}/{names[f'img_browser_ranking{suffix}']}", bbox_inches="tight")
+        browser_ranking = get_browser_ranking(db, whole_timespan_timestamps, only_human=False)
+        browser_ranking = make_ranking_relative(browser_ranking)
+        pdebug("visualize: browser ranking:", browser_ranking, lvl=3)
+        platform_ranking = get_platform_ranking(db, whole_timespan_timestamps, only_human=False)
+        platform_ranking = make_ranking_relative(platform_ranking)
+        pdebug("visualize: platform ranking:", platform_ranking, lvl=3)
+        if img_out_dir:
+            fig_os_rating = plot_ranking(platform_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_platforms, figsize=settings["plot-generation"]["size_narrow"])
+            savefig(f"ranking_platform_{suffix}", fig_os_rating)
+            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browser", ylabel="Share [%]", color_settings=color_settings_browsers, figsize=settings["plot-generation"]["size_narrow"])
+            savefig(f"ranking_browser_{suffix}", fig_browser_rating)
+        if data_out_dir:
+            export_ranking(f"ranking_platform_{suffix}", "platform", platform_ranking)
+            export_ranking(f"ranking_browser_{suffix}", "browser", browser_ranking)
 
-    # print("OS ranking", os_ranking)
-    # print("Browser ranking", browser_ranking)
-    # print("Mobile percentage", names["mobile_visitor_percentage"])
-    if settings["template_html"] and settings["html_out_path"]:
-        pdebug(f"visualize: writing to html: {settings['html_out_path']}")
 
-        with open(settings["template_html"], "r") as file:
+    html_variables_str = dict_str(html_variables).replace('\n', '\n\t')
+    pdebug(f"visualize: html_variables:\n\t{html_variables_str}", lvl=2)
+
+    template_html: str|None = settings["html-generation"]["template_html"]
+    html_out_path: str|None = settings["html-generation"]["html_out_path"]
+    if template_html and html_out_path:
+        pdebug(f"visualize: generating from template '{template_html}' to '{html_out_path}'", lvl=2)
+        if not path.isfile(template_html):
+            error(f"Invalid template file path: '{template_html}'")
+        with open(template_html, "r") as file:
             html = file.read()
-        for name, value in names.items():
+        for name, value in html_variables.items():
             if "img" in name:
                 value = f"{img_location}/{value}"
-            if type(value) == float:
+            elif type(value) == float:
                 value = f"{value:.2f}"
             html = html.replace(f"%{name}", str(value))
-        with open(settings["html_out_path"], "w") as file:
+        make_parent_dirs(html_out_path)
+        with open(html_out_path, "w") as file:
             file.write(html)
     else:
-        warning(f"Skipping html generation because either template_html or html_out_path is invalid: template_html='{settings['template_html']}', html_out_path='{settings['html_out_path']}'")
+        pdebug(f"visualize: skipping html generation because either template_html or html_out_path is None: template_html='{template_html}', html_out_path='{html_out_path}'", lvl=1)
