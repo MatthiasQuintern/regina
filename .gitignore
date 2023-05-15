@@ -3,4 +3,3 @@ test/
 *__pycache__*
 build/
 regina.egg-info/
-regina/test/
