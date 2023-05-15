@@ -1,8 +1,8 @@
 """global variables for regina"""
 
 import os
-
 import re
+import importlib.metadata
 
 if __name__ == "__main__":  # make relative imports work as described here: https://peps.python.org/pep-0366/#proposed-change
     if __package__ is None:
@@ -14,9 +14,7 @@ if __name__ == "__main__":  # make relative imports work as described here: http
 
 from regina.utility.config import CFG_Entry, CFG_File, ReginaSettings, Path, comment
 
-version = "2.0"
-
-
+version = importlib.metadata.version("regina")
 
 # these oses and browser can be detected:
 # lower element takes precedence

@@ -3,7 +3,7 @@ requires = ["setuptools"]
 
 [project]
 name = "regina"
-version = "2.0.0"
+version = "1.1.0"
 description = "Get website analytics from nginx logs and visualize them"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -28,7 +28,7 @@ documentation = "https://quintern.xyz/en/software/regina.html"
 
 
 [tool.setuptools.packages.find]
-where = ["regina"]
+where = ["."]
 
 [project.scripts]
  regina = "regina.main:main"
