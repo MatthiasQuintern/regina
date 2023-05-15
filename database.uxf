@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <diagram program="umlet" version="15.1">
-  <zoom_level>8</zoom_level>
+  <zoom_level>9</zoom_level>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>96</x>
-      <y>248</y>
-      <w>160</w>
-      <h>144</h>
+      <x>441</x>
+      <y>306</y>
+      <w>180</w>
+      <h>162</h>
     </coordinates>
     <panel_attributes>visitor
 --
@@ -17,19 +17,20 @@
 - ip_address: INTEGER
 - platform_id: INTEGER
 - browser_id: INTEGER
-- mobile: INTEGER
+- is_mobile: INTEGER
 - is_human: INTEGER
-- range_id: INTEGER
-style=autoresize</panel_attributes>
+- ip_range_id: INTEGER
+style=autoresize
+bg=MAGENTA</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>216</x>
-      <y>168</y>
-      <w>32</w>
-      <h>96</h>
+      <x>558</x>
+      <y>216</y>
+      <w>36</w>
+      <h>108</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
@@ -40,10 +41,10 @@ m2=1
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>352</x>
-      <y>240</y>
-      <w>152</w>
-      <h>136</h>
+      <x>702</x>
+      <y>306</y>
+      <w>171</w>
+      <h>153</h>
     </coordinates>
     <panel_attributes>request
 --
@@ -56,30 +57,31 @@ m2=1
 --
 - time: INTEGER
 - status: INTEGER
-style=autoresize</panel_attributes>
+style=autoresize
+bg=CYAN</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>248</x>
-      <y>248</y>
-      <w>120</w>
-      <h>40</h>
+      <x>612</x>
+      <y>333</y>
+      <w>108</w>
+      <h>45</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=1
 m2=n
 </panel_attributes>
-    <additional_attributes>10.0;20.0;130.0;20.0</additional_attributes>
+    <additional_attributes>10.0;20.0;100.0;20.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>16</x>
-      <y>96</y>
-      <w>160</w>
-      <h>80</h>
+      <x>333</x>
+      <y>135</y>
+      <w>180</w>
+      <h>90</h>
     </coordinates>
     <panel_attributes>platform
 --
@@ -88,16 +90,17 @@ m2=n
 --
 - name: TEXT UNIQUE
 --
-style=autoresize</panel_attributes>
+style=autoresize
+bg=MAGENTA</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>328</x>
-      <y>488</y>
-      <w>152</w>
-      <h>104</h>
+      <x>702</x>
+      <y>549</y>
+      <w>171</w>
+      <h>117</h>
     </coordinates>
     <panel_attributes>city
 --
@@ -107,95 +110,98 @@ style=autoresize</panel_attributes>
 - country_id: INTEGER
 - name: TEXT
 - region: TEXT
-style=autoresize</panel_attributes>
+style=autoresize
+bg=ORANGE</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>536</x>
-      <y>488</y>
-      <w>152</w>
-      <h>88</h>
+      <x>945</x>
+      <y>549</y>
+      <w>171</w>
+      <h>99</h>
     </coordinates>
     <panel_attributes>country
 --
 &lt;&lt;PK&gt;&gt;
 - country_id: INTEGER
 --
-- name: TEXT
-- code: TEXT
-style=autoresize</panel_attributes>
+- name: TEXT UNIQUE
+- code: TEXT UNIQUE
+style=autoresize
+bg=ORANGE</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>472</x>
-      <y>504</y>
-      <w>80</w>
-      <h>40</h>
+      <x>864</x>
+      <y>567</y>
+      <w>99</w>
+      <h>45</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=1
 m2=n
 </panel_attributes>
-    <additional_attributes>80.0;20.0;10.0;20.0</additional_attributes>
+    <additional_attributes>90.0;20.0;10.0;20.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>264</x>
-      <y>504</y>
-      <w>80</w>
-      <h>40</h>
+      <x>612</x>
+      <y>567</y>
+      <w>108</w>
+      <h>45</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=1
 m2=n
 </panel_attributes>
-    <additional_attributes>80.0;20.0;10.0;20.0</additional_attributes>
+    <additional_attributes>100.0;20.0;10.0;20.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>136</x>
-      <y>488</y>
-      <w>136</w>
-      <h>104</h>
+      <x>441</x>
+      <y>549</y>
+      <w>180</w>
+      <h>117</h>
     </coordinates>
     <panel_attributes>ip_range
 --
 &lt;&lt;PK&gt;&gt;
-- range_id
+- ip_range_id
 --
-- from: INTEGER
-- to: INTEGER
+- low: INTEGER UNIQUE
+- high: INTEGER UNIQUE
 - city_id: INTEGER
-style=autoresize</panel_attributes>
+style=autoresize
+bg=ORANGE</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>176</x>
-      <y>384</y>
-      <w>32</w>
-      <h>120</h>
+      <x>522</x>
+      <y>459</y>
+      <w>36</w>
+      <h>108</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=1
 m2=n
 </panel_attributes>
-    <additional_attributes>10.0;130.0;10.0;10.0</additional_attributes>
+    <additional_attributes>10.0;100.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>576</x>
-      <y>264</y>
-      <w>144</w>
-      <h>80</h>
+      <x>945</x>
+      <y>306</y>
+      <w>162</w>
+      <h>90</h>
     </coordinates>
     <panel_attributes>route
 --
@@ -204,16 +210,17 @@ m2=n
 --
 - name: TEXT UNIQUE
 --
-style=autoresize</panel_attributes>
+style=autoresize
+bg=CYAN</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>208</x>
-      <y>96</y>
-      <w>152</w>
-      <h>80</h>
+      <x>549</x>
+      <y>135</y>
+      <w>171</w>
+      <h>90</h>
     </coordinates>
     <panel_attributes>browser
 --
@@ -222,16 +229,17 @@ style=autoresize</panel_attributes>
 --
 - name: TEXT UNIQUE
 --
-style=autoresize</panel_attributes>
+style=autoresize
+bg=MAGENTA</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>144</x>
-      <y>168</y>
-      <w>32</w>
-      <h>96</h>
+      <x>486</x>
+      <y>216</y>
+      <w>36</w>
+      <h>108</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
@@ -242,10 +250,10 @@ m2=1
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>392</x>
-      <y>96</y>
-      <w>152</w>
-      <h>80</h>
+      <x>756</x>
+      <y>135</y>
+      <w>171</w>
+      <h>90</h>
     </coordinates>
     <panel_attributes>referer
 --
@@ -254,35 +262,36 @@ m2=1
 --
 - name: TEXT UNIQUE
 --
-style=autoresize</panel_attributes>
+style=autoresize
+bg=CYAN</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>400</x>
-      <y>168</y>
-      <w>32</w>
-      <h>88</h>
+      <x>783</x>
+      <y>216</y>
+      <w>36</w>
+      <h>108</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
 m2=1
 </panel_attributes>
-    <additional_attributes>10.0;90.0;10.0;10.0</additional_attributes>
+    <additional_attributes>10.0;100.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>496</x>
-      <y>288</y>
-      <w>96</w>
-      <h>40</h>
+      <x>864</x>
+      <y>333</y>
+      <w>99</w>
+      <h>45</h>
     </coordinates>
     <panel_attributes>lt=-
 m1=n
 m2=1
 </panel_attributes>
-    <additional_attributes>10.0;20.0;100.0;20.0</additional_attributes>
+    <additional_attributes>10.0;20.0;90.0;20.0</additional_attributes>
   </element>
 </diagram>

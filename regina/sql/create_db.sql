@@ -1,7 +1,7 @@
 -- see database.uxf
 CREATE TABLE IF NOT EXISTS visitor(
     visitor_id  INTEGER PRIMARY KEY,
-    
+    ip_address  INTEGER,
     ip_range_id INTEGER,
     platform_id INTEGER,
     browser_id  INTEGER,
@@ -28,12 +28,12 @@ CREATE TABLE IF NOT EXISTS request(
     request_id  INTEGER PRIMARY KEY,
     visitor_id  INTEGER,
     route_id    INTEGER,
-    referer     INTEGER,
+    referer_id  INTEGER,
     time        INTEGER,
     status      INTEGER,
     FOREIGN KEY(visitor_id) REFERENCES visitor(visitor_id),
     FOREIGN KEY(route_id) REFERENCES route(route_id),
-    FOREIGN KEY(referer) REFERENCES referer(referer_id)
+    FOREIGN KEY(referer_id) REFERENCES referer(referer_id)
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS referer(
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS ip_range(
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS city(
-    city        INTEGER PRIMARY KEY,
+    city_id     INTEGER PRIMARY KEY,
     name        TEXT,
     region      TEXT,
     country_id  INTEGER,
