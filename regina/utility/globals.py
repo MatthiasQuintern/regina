@@ -270,7 +270,7 @@ Both are optional: you can provide, none or both
     ])
 cfg.add_section("route-groups", desc="Group certain routes together using by matching them with a regular expression.\nThe route's request count will be added to all matching groups and the route will be removed from the ranking.", entries=[
     comment("Home = /|(/home.html)|(/index.html)"),
-    comment(r"Images = .*\.((png)|(jpg)|(jpeg)|(gif)|(webp)|(svg))"),
+    comment(r"Images = .*\.((png)|(jpe?g)|(gif)|(webp)|(svg)|(ico))"),
     comment(r"Resources = /resources/.*"),
     ])
 

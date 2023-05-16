@@ -417,7 +417,7 @@ def visualize(db: Database):
 
 
     html_variables_str = dict_str(html_variables).replace('\n', '\n\t')
-    pdebug(f"visualize: html_variables:\n\t{html_variables_str}", lvl=2)
+    pdebug(f"visualize: html_variables:\n\t{html_variables_str}", lvl=1)
 
     template_html: str|None = settings["html-generation"]["template_html"]
     html_out_path: str|None = settings["html-generation"]["html_out_path"]
