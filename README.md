@@ -1,6 +1,3 @@
-# regina - nginx analytics tool
-**R**uling **E**mpress **G**enerating **I**n-depth **N**ginx **A**nalytics (obviously)
-
 # regina - website analytics
 **R**uling **E**mpress **G**enerating **I**n-depth **N**ginx **A**nalytics
 
