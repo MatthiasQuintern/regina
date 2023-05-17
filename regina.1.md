@@ -1,19 +1,45 @@
 % REGINA(1) regina 1.1
 % Matthias Quintern
-% April 2022
+% May 2023
 
 # NAME
 regina - **R**uling **E**mpress **G**enerating **I**n-depth **N**ginx **A**nalytics (obviously)
 
+## Description
+`regina` is a **python**  <!-- ![python-logo](/resources/img/logos/python.svg "snek make analytics go brr") --> program that generates ***analytics*** for a static webpage serverd with **nginx**.
+`regina` is easy to deploy and privacy respecting: 
+  - it collects the data from the nginx logs: no javascript/changes to your website required
+  - data is stored on your device in a **sqlite** database, nothing goes to any cloud
+It parses the log and **stores** the important data in an *sqlite* <!-- ![sqlite-logo](/resources/img/logos/sqlite.svg) --> database. 
+It can then create an analytics html page that has lots of useful **plots** and **numbers**.
+
+<!-- ## Capabilities -->
+<!-- ### Statistics -->
+<!-- `regina` can generate the following statistics: -->
+
+<!--   - visitor count history -->
+<!--   - request count history -->
+<!--   - referrer ranking *(from which site people visit)* -->
+<!--   - route ranking *(accessed files)* -->
+<!--   - browser ranking -->
+<!--   - platform ranking *(operating systems)* -->
+<!--   - city ranking *(where your site visitors are from)* -->
+<!--   - country ranking -->
+<!--   - mobile visitor percentage -->
+<!--   - detect if a visitor is likely to be human or a bot -->
+
+<!-- All of those plots and numbers can be generated for the **last x days** (you can set *x* yourself) and for **all times**. -->
+
+<!-- ### Visualization -->
+<!-- `regina` can use the data above to generate a static analytics page in a single html file. --> 
+<!-- The visitor and ranking histories are included as plots. -->  
+<!-- You can view an example page [here](https://quintern.xyz/en/software/regina-example.html) -->  
+<!-- If that is not enough for you, you can write your own script and use data exported by regina or access the database directly. -->
+
 # SYNOPSIS
 | **regina** --config CONFIG_FILE [OPTION...]
 
-# DESCRIPTION
-Regina is an analytics tool for nginx.
-It collects information from the nginx access.log and stores it in a sqlite3 database.
-Regina supports several data visualization configurations and can generate an admin-analytics page from an html template file.
-
-## Command line options
+# COMMAND LINE OPTIONS
 **-h**, **--help**
 : Show the the possible command line arguments
 
@@ -37,8 +63,8 @@ Regina supports several data visualization configurations and can generate an ad
 ## Dependencies
 - **nginx**: You need a nginx webserver that outputs the access log in the `combined` format, which is the default
 - **sqlite >= 3.37**
-- **Python >= 3.10**
-- **Python/matplotlib**
+- **python >= 3.10**
+- **python-matplotlib**
 
 ## Installation
 You can install regina with python-pip:
@@ -119,7 +145,7 @@ In our example, `/www` will look like this:
 ### Automation
 You will probably run `regina` once per day, after `nginx` has filled the daily access log. The easiest way to that is using a *cronjob*.
 Run `crontab -e` and enter:
-`10 0 * * * /usr/bin/regina --config /home/myuser/.config/regina/regina.conf --collect --visualize`
+`10 0 * * * /usr/bin/regina --config /home/myuser/.config/regina/regina.cfg --collect --visualize`
 This assumes, you installed `regina` system-wide.  
 Now the `regina` command will be run every day, ten minutes after midnight.
 After each day, rotates the logs, so  `access.log` becomes `access.log.1`.
@@ -144,7 +170,7 @@ By default, `regina` only tells you which country a user is from.
 Append the two-letter country codes for countries you are interested in to the `get_cities_for_contries` option.  
 After that, add the GeoIP-data into your database:
 ```
-    regina --config regina.conf --update-geoip path-to-csv
+    regina --config regina.cfg --update-geoip path-to-csv
 ```
 Depending on how many countries you specified, this might take a long time. You can delete the `csv` afterwards.
 
