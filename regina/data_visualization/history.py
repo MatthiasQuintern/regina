@@ -12,10 +12,19 @@ def get_visitor_count_between(db: Database, timestamps: tuple[int, int], only_hu
     {'AND v.is_human = 1' if only_human else ''}""")[0][0]
 
 def get_request_count_between(db: Database, timestamps: tuple[int, int], only_human=False):
-    return db(f"""SELECT COUNT(r.request_id)
-    FROM request AS r, visitor AS v
-    WHERE r.time BETWEEN {timestamps[0]} AND {timestamps[1]}
-    {'AND v.is_human = 1' if only_human else ''}""")[0][0]
+    if only_human:
+        return db(f"""SELECT COUNT(r.request_id)
+        FROM request AS r
+        JOIN (
+            SELECT visitor_id
+            FROM visitor
+            {'WHERE is_human = 1' if only_human else ''}
+        ) AS v ON v.visitor_id = r.visitor_id
+        WHERE r.time BETWEEN {timestamps[0]} AND {timestamps[1]}""")[0][0]
+    else:
+        return db(f"""SELECT COUNT(*)
+        FROM request
+        WHERE time BETWEEN {timestamps[0]} AND {timestamps[1]}""")[0][0]
 
 
 def get_new_visitor_count_between(db: Database, timestamps: tuple[int, int]):
