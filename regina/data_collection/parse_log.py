@@ -9,7 +9,7 @@ collect information from the access log and put it into the database
 re_remote_addr = r"[0-9a-fA-F.:]+"
 re_remote_user = ".*"
 re_time_local = r"\[.+\]"
-re_request = r'"[^"]+"'
+re_request = r'"[^"]*"'
 re_status = r'\d+'
 re_body_bytes_sent = r'\d+'
 re_http_referer = r'"([^"]*)"'
@@ -26,7 +26,7 @@ def parse_log(logfile_path:str) -> list[Request]:
     for i in range(len(lines)):
         m = match(re_log_format, lines[i])
         if m is None:
-            warning(f"parse_log: Could not match line {i:3}: '{lines[i]}'")
+            warning(f"parse_log: Could not match line {i:3}: '{lines[i].strip('\n')}'")
             continue
         pdebug(f"parse_log: line {i:3} match groups:", m.groups(), lvl=4)
         # _ is user
