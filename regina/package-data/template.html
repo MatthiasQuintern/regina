@@ -2,20 +2,20 @@
     <head>
         <meta http-equiv="content-type" content="text/html">
         <meta charset="utf-8">
-        <meta name="description" content="Regina - Nginx Analytics">
+        <meta name="description" content="regina - nginx analytics">
         <meta name="keywords" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Analytics for %server_name</title>
-        <link rel="stylesheet" href="style.css">
+        <!-- <link rel="stylesheet" href="style.css"> -->
     </head>
     <style>
         :root {
             --background:       #111;
             --box:              #333;
             --box-border:       #009;
-            --box-radius:       6px;
+            --box-radius:       0px;
             --box-padding:      8px;
-            --box-margin:       20px;
+            --box-margin:       30px;
             --font:             #eee;
         }
 
@@ -51,16 +51,14 @@
     <div style="text-align: center">
         <h2>Last %last_x_days days</h2>
             <hr>
-            <h3>Visitor and request count (per month)</h3>
+            <h3>Visitor and request history</h3>
                 <img src="%img_history_visitor_request_last_x_days" alt="Daily Statistics", title="Visitor and request count for the last %last_x_days days">
-                <ul>
-                    <li>visitor count: <b>%visitor_count_last_x_days</b>, from which <b>%visitor_count_human_last_x_days</b> (<b>%human_visitor_percentage_last_x_days%</b>) are human</li>
-                    <li>request count: <b>%request_count_last_x_days</b>, from which <b>%request_count_human_last_x_days</b> (<b>%human_request_percentage_last_x_days%</b>) came from human visitors </li>
-                </ul>
+                <p>visitor count: <b>%visitor_count_last_x_days</b>, from which <b>%visitor_count_human_last_x_days</b> (<b>%human_visitor_percentage_last_x_days%</b>) are human</p>
+                <p>request count: <b>%request_count_last_x_days</b>, from which <b>%request_count_human_last_x_days</b> (<b>%human_request_percentage_last_x_days%</b>) came from human visitors </p>
             <hr>
 
-            <h3>File access</h3>
-                <img src="%img_ranking_route_last_x_days" alt="File ranking for the last %last_x_days days", title="File ranking for the last %last_x_days days">
+            <h3>Routes</h3>
+                <img src="%img_ranking_route_last_x_days" alt="Route ranking for the last %last_x_days days", title="Route ranking for the last %last_x_days days">
             <hr>
 
             <h3>Platforms and browsers</h3>
@@ -84,16 +82,14 @@
     <div style="text-align: center">
         <h2>Total (since %earliest_date)</h2>
             <hr>
-            <h3>Visitor and request count (per month)</h3>
+            <h3>Visitor and request history (per month)</h3>
                 <img src="%img_history_visitor_request_total" alt="Monthly Statistics", title="Visitor and request history">
-                <ul>
-                    <li>Total visitor count: <b>%visitor_count_total</b>, from which <b>%human_visitor_percentage_total%</b> are human</li>
-                    <li>Total request count: <b>%request_count_total</b>, from which <b>%human_request_percentage_total%</b> came from human visitors </li>
-                </ul>
+                <p>Total visitor count: <b>%visitor_count_total</b>, from which <b>%human_visitor_percentage_total%</b> are human</p>
+                <p>Total request count: <b>%request_count_total</b>, from which <b>%human_request_percentage_total%</b> came from human visitors </p>
             <hr>
 
-            <h3>File access</h3>
-                <img src="%img_ranking_route_total" alt="File ranking", title="File ranking">
+            <h3>Routes</h3>
+                <img src="%img_ranking_route_total" alt="Route ranking", title="Route ranking">
             <hr>
 
             <h3>Platforms and browsers</h3>
