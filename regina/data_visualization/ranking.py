@@ -183,7 +183,9 @@ def _get_platform_or_browser_ranking(db: Database, timestamps: tuple[int, int], 
             AND r.time BETWEEN {timestamps[0]} AND {timestamps[1]}
         )
         {'AND v.is_human = 1' if only_human else ''}""")
-        ranking.append((db.fetchone()[0], name))
+        count = db.fetchoone()[0]
+        if count > 0:
+            ranking.append((count, name))
     ranking.sort()
     return ranking
 
