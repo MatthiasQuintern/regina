@@ -29,8 +29,9 @@ palette = {
 color_settings_filetypes = {
     palette["red"]: ["html", "php"],
     palette["green"]: ["jpg", "png", "jpeg", "gif", "svg", "webp"],
-    palette["yellow"]: ["css"],
-    "grey": ["txt"]
+    palette["yellow"]: ["css", "js", "xml"],
+    palette["green"]: ["pdf", "mp3", "flac", "mp4", "mkv", "zip", "7z", "gz"],
+    "grey": ["txt", "md"]
 }
 color_settings_alternate = list(palette.values())
 
@@ -52,10 +53,10 @@ color_settings_platforms = {
 }
 
 color_settings_history = {
-    "visitors":         "#000050",
+    "visitors":         "#0000bb",
     "visitors_human":   "#3366ff",
     "visitors_new":     "#66ccff",
-    "requests":         "#770000",
+    "requests":         "#bb0000",
     "requests_human":   "#ff3500",
     "requests_new":     "#ff9999",
 }
@@ -437,4 +438,4 @@ def visualize(db: Database):
         with open(html_out_path, "w") as file:
             file.write(html)
     else:
-        pdebug(f"visualize: skipping html generation because either template_html or html_out_path is None: template_html='{template_html}', html_out_path='{html_out_path}'", lvl=1)
+        PDebug(f"visualize: skipping html generation because either template_html or html_out_path is None: template_html='{template_html}', html_out_path='{html_out_path}'", lvl=1)
