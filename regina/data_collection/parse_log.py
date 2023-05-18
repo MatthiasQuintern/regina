@@ -26,7 +26,8 @@ def parse_log(logfile_path:str) -> list[Request]:
     for i in range(len(lines)):
         m = match(re_log_format, lines[i])
         if m is None:
-            warning(f"parse_log: Could not match line {i:3}: '{lines[i].strip('\n')}'")
+            line = lines[i].strip('\n')
+            warning(f"parse_log: Could not match line {i:3}: '{line}'")
             continue
         pdebug(f"parse_log: line {i:3} match groups:", m.groups(), lvl=4)
         # _ is user
