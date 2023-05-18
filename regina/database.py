@@ -283,20 +283,35 @@ class Database:
         assert(type(country_id_val) == int)
         return country_id_val
 
-    def get_city_id(self, name, region, country_id) -> int:
+    def get_region_id(self, name: str, country_id: int) -> int:
+        """
+        get the id of region of name
+        if not present, insert and return id
+        """
         name = sanitize(name)
-        region = sanitize(region)
-        if not sql_exists(self.cur, "city", [("name", name), ("region", region), ("country_id", country_id)], do_sanitize=False):
-            self.cur.execute(f"INSERT INTO city (name, region, country_id) VALUES ('{name}', '{region}', '{country_id}')")
-        cities = sql_select(self.cur, "city", [("name", name), ("region", region), ("country_id", country_id)], do_sanitize=False)
+        if not sql_exists(self.cur, "region", [("name", name), ("country_id", country_id)], do_sanitize=False):
+            self.cur.execute(f"INSERT INTO region (name, country_id) VALUES ('{name}', '{country_id}')")
+        regions = self(f"SELECT region_id FROM region WHERE name = '{name}' AND country_id = '{country_id}'")
+        if len(regions) > 0:
+            region_id_val = regions[0][0]
+        else:
+            warning(f"get_region_id: Could not get region_id for name='{name}'.")
+            return 0
+        assert(type(region_id_val) == int)
+        return region_id_val
+
+    def get_city_id(self, name, region_id: int, country_id:int) -> int:
+        name = sanitize(name)
+        if not sql_exists(self.cur, "city", [("name", name), ("region_id", region_id), ("country_id", country_id)], do_sanitize=False):
+            self.cur.execute(f"INSERT INTO city (name, region_id, country_id) VALUES ('{name}', '{region_id}', '{country_id}')")
+        cities = sql_select(self.cur, "city", [("name", name), ("region_id", region_id), ("country_id", country_id)], do_sanitize=False)
         if len(cities) > 0:
             city_id_val = cities[0][0]
         else:
-            warning(f"get_city_id: Could not get city_id for name='{name}', region='{region}' and country_id='{country_id}'.")
+            warning(f"get_city_id: Could not get city_id for name='{name}', region_id='{region_id}' and country_id='{country_id}'.")
             return 0
         assert(type(city_id_val) == int)
         return city_id_val
-
 
     def update_geoip_tables(self, geoip_city_csv_path: str):
         """
@@ -304,8 +319,6 @@ class Database:
 
         Make sure to update the visitor.ip_range_id column for all visitors.
         In case something changed, they might point to a different city.
-
-        TODO: update teh visitor.ip_range_id column to match (potentially) new city ip range
         """
         # indices for the csv
         FROM = 0; TO = 1; CODE = 2; COUNTRY = 3; REGION = 4; CITY = 5
@@ -333,24 +346,26 @@ class Database:
             self.cur.execute(f"DELETE FROM ip_range")
             self.cur.execute(f"DELETE FROM city")
             self.cur.execute(f"DELETE FROM country")
+            self.cur.execute(f"DELETE FROM region")
             self.conn.commit()
             self.cur.execute(f"VACUUM")
 
             # guarantees that unkown city/country will have id 0
             self.cur.execute(f"INSERT INTO country (country_id, name, code) VALUES (0, 'Unknown', 'XX') ")
-            self.cur.execute(f"INSERT INTO city (city_id, name, region) VALUES (0, 'Unknown', 'Unkown') ")
+            self.cur.execute(f"INSERT INTO region  (region_id, name, country_id) VALUES (0, 'Unknown', 0) ")
+            self.cur.execute(f"INSERT INTO city (city_id, name, region_id, country_id) VALUES (0, 'Unknown', 0, 0) ")
 
             # for combining city ranges into a 'City in <Country>' range
             # country_id for the range that was last added (for combining multiple csv rows in one ip_range)
             RANGE_DONE = -1
-            combine_range_country_id = RANGE_DONE
-            combine_range_country_name = ""
+            combine_range_city_id = RANGE_DONE
             combine_range_low = RANGE_DONE
             combine_range_high = RANGE_DONE
 
-            def add_range(low, high, city_name, region, country_id):
-                city_id = self.get_city_id(city_name, region, country_id)
-                pdebug(f"update_ip_range_id: Adding range for city={city_name:20}, country_id={country_id:3}, low={low:16}, high={high:16}", lvl=2)
+            get_all = "all" in settings["data-collection"]["get_cities_for_countries"]
+
+            def add_range(low, high, city_id):
+                pdebug(f"update_ip_range_id: Adding range for city={city_id:20}, low={low:16}, high={high:16}", lvl=3)
                 self.cur.execute(f"INSERT INTO ip_range (low, high, city_id) VALUES ({low}, {high}, {city_id})")
             for i, row in enumerate(csv, 1):
                 # if i % 100 == 0:
@@ -365,25 +380,27 @@ class Database:
                 # make sure country exists
                 country_id = self.get_country_id(row[COUNTRY], row[CODE])
                 # only add cities for countries the user is interested in
-                if row[CODE] in settings["data-collection"]["get_cities_for_countries"]:
-                    add_range(row[FROM], row[TO], row[CITY], row[REGION], country_id)
+                if get_all or row[CODE] in settings["data-collection"]["get_cities_for_countries"]:
+                    region_id = self.get_region_id(row[REGION], country_id)
+                    city_id = self.get_city_id(row[CITY], region_id, country_id)
                 else:
-                    # if continuing 
-                    if combine_range_country_id != RANGE_DONE:
-                        # if continuing previous range, extend the upper range limit
-                        if combine_range_country_id == country_id:
-                            combine_range_high = row[TO]
-                        else:  # new range for country, append
-                            add_range(combine_range_low, combine_range_high, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id)
-                            combine_range_country_id = RANGE_DONE
-                    # not elif, this has to be executed if previous else was executed
-                    if combine_range_country_id == RANGE_DONE :  # currently in new range, combine with later ranges
-                        combine_range_country_id = country_id
-                        combine_range_country_name = row[COUNTRY]
-                        combine_range_low = row[FROM]
+                    region_id = self.get_region_id(f"Region in {row[COUNTRY]}", country_id)
+                    city_id = self.get_city_id(f"City in {row[COUNTRY]}", region_id, country_id)
+                # if continuing 
+                if combine_range_city_id != RANGE_DONE:
+                    # if continuing previous range, extend the upper range limit
+                    if combine_range_city_id == city_id:
                         combine_range_high = row[TO]
-            if combine_range_country_id >= 0:  # last range , append
-                add_range(combine_range_low, combine_range_high, f"City in {combine_range_country_name}", f"Region in {combine_range_country_name}", combine_range_country_id)
+                    else:  # new range for city, append
+                        add_range(combine_range_low, combine_range_high, combine_range_city_id)
+                        combine_range_city_id = RANGE_DONE
+                # not elif, this has to be executed if previous else was executed
+                if combine_range_city_id == RANGE_DONE :  # currently in new range, combine with later ranges
+                    combine_range_city_id = city_id
+                    combine_range_low = row[FROM]
+                    combine_range_high = row[TO]
+            if combine_range_city_id != RANGE_DONE:  # last range , append
+                add_range(combine_range_low, combine_range_high, combine_range_city_id)
 
 
     #

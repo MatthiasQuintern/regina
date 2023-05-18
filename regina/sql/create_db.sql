@@ -59,7 +59,15 @@ CREATE TABLE IF NOT EXISTS ip_range(
 CREATE TABLE IF NOT EXISTS city(
     city_id     INTEGER PRIMARY KEY,
     name        TEXT,
-    region      TEXT,
+    region_id   INTEGER,
+    country_id  INTEGER,
+    FOREIGN KEY(region_id) REFERENCES region(region_id),
+    FOREIGN KEY(country_id) REFERENCES country(country_id)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS region(
+    region_id   INTEGER PRIMARY KEY,
+    name        TEXT,
     country_id  INTEGER,
     FOREIGN KEY(country_id) REFERENCES country(country_id)
 ) STRICT;
