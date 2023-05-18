@@ -118,7 +118,7 @@ cfg.add_section("data-collection", desc="These settings affect the data collecti
             desc="whether to get visitor location information (requires GeoIP database)",
             typ_=bool),
     CFG_Entry("get_cities_for_countries",
-            desc="countries for which the GeoIP needs to be resolved at city level (example is EU, China, US)",
+            desc="countries for which the GeoIP needs to be resolved at city level (example is EU, China, US). write 'all' to get all countries",
             typ_="list of capitalized ISO 3166-1 alpha-2 country codes: https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements",
             exam="AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GZ, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE, CN, US"),
     ])
