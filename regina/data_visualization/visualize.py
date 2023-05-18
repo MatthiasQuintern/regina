@@ -247,10 +247,14 @@ def visualize(db: Database):
     html_variables["generation_date"] = dt.now().strftime("%Y-%m-%d %H:%M:%S")
 
     todos: list[tuple[str, tuple[int, int], list[str], list[str], list[tuple[int, int]]]] = []  # suffix, whole_time_timestamps, history_date_constraints, history_date_names, history_date_timestamps
+    task_nr = 1
+    task_total = 0
+    tasks_per_suffix = 9
 
     now_stamp = int(dt.now().timestamp())
     total: bool = settings["data-visualization"]["total"]
     if total:
+        task_total += tasks_per_suffix
         all_time_timestamps = (0, now_stamp)
         # all months in yyyy-mm format
         month_names = db.get_months_where(get_date_constraint(min_date=0))
@@ -272,6 +276,7 @@ def visualize(db: Database):
 
     last_x_days: int = settings["data-visualization"]["last_x_days"]
     if last_x_days > 0:
+        task_total += tasks_per_suffix
         secs_per_day   = 86400
         last_x_days_min_date      = db.get_latest_timestamp() - last_x_days * secs_per_day
         last_x_days_timestamps = (last_x_days_min_date, now_stamp)
@@ -310,9 +315,9 @@ def visualize(db: Database):
         pdebug(f"visualize: Saving plot for {name} as '{filename}'")
         figure.savefig(filename, bbox_inches="tight")  # bboximg_inches="tight"
 
-    task_nr = 1
-    task_total = 9
+
     def pprogress(*args):
+        nonlocal task_nr, task_total
         pmessage(f"Visualize: {task_nr}/{task_total}:", *args, end='\r')
         task_nr += 1
 
