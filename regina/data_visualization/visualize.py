@@ -318,7 +318,7 @@ def visualize(db: Database):
 
     def pprogress(*args):
         nonlocal task_nr, task_total
-        pmessage(f"Visualize: {task_nr}/{task_total}:", *args, end='\r')
+        pmessage(f"Visualize: {task_nr}/{task_total}:", *args, end=' '*20 + '\r')
         task_nr += 1
 
     pdebug(f"visualize: total={total}, last_x_days={last_x_days}", lvl=3)
@@ -428,8 +428,6 @@ def visualize(db: Database):
         if img_out_dir:
             fig_os_rating = plot_ranking(platform_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_platforms, figsize=settings["plot-generation"]["size_narrow"])
             savefig(f"ranking_platform_{suffix}", fig_os_rating)
-            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browser", ylabel="Share [%]", color_settings=color_settings_browsers, figsize=settings["plot-generation"]["size_narrow"])
-            savefig(f"ranking_browser_{suffix}", fig_browser_rating)
         if data_out_dir:
             export_ranking(f"ranking_platform_{suffix}", "platform", platform_ranking)
 
