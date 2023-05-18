@@ -8,7 +8,7 @@ from datetime import datetime as dt
 # local
 from regina.database import Database
 from regina.utility.sql_util import get_date_constraint, sanitize
-from regina.utility.utility import pdebug, warning, error, make_parent_dirs, dict_str
+from regina.utility.utility import pdebug, warning, error, make_parent_dirs, dict_str, pmessage
 from regina.utility.globals import settings
 from regina.data_visualization.utility import len_list_list
 from regina.data_visualization.ranking import get_referer_ranking, cleanup_referer_ranking, get_route_ranking, route_ranking_group_routes, get_browser_ranking, get_platform_ranking, get_city_ranking, get_country_ranking, make_ranking_relative
@@ -310,10 +310,18 @@ def visualize(db: Database):
         pdebug(f"visualize: Saving plot for {name} as '{filename}'")
         figure.savefig(filename, bbox_inches="tight")  # bboximg_inches="tight"
 
+    task_nr = 1
+    task_total = 9
+    def pprogress(*args):
+        pmessage(f"Visualize: {task_nr}/{task_total}:", *args, end='\r')
+        task_nr += 1
 
     pdebug(f"visualize: total={total}, last_x_days={last_x_days}", lvl=3)
     for suffix, whole_timespan_timestamps, single_date_constraints, single_date_names, single_date_timestamps in todos:
         assert(len(single_date_names) == len(single_date_constraints))
+
+
+        pprogress("Getting statistics")
 
         # STATISTICS
         visitor_count = h.get_visitor_count_between(db, whole_timespan_timestamps)
@@ -333,6 +341,7 @@ def visualize(db: Database):
             try:                        html_variables[f"mobile_visitor_percentage_{suffix}"] = 100.0 * h.get_mobile_visitor_count_between(db, whole_timespan_timestamps, only_human=True) / visitor_count_human
             except ZeroDivisionError:   pass
 
+        pprogress("Generating visitor+request history")
         # HISTORY
         date_count = len(single_date_constraints)
         visitor_count_dates = [ h.get_visitor_count_between(db, single_date_timestamps[i], only_human=False) for i in range(date_count) ]
@@ -364,7 +373,7 @@ def visualize(db: Database):
         #     s = ""
 
         # ROUTES
-        # TODO handle groups
+        pprogress("Generating route ranking")
         route_ranking = get_route_ranking(db, whole_timespan_timestamps)
         route_ranking = route_ranking_group_routes(route_ranking)
         pdebug("visualize: route ranking", route_ranking, lvl=3)
@@ -376,6 +385,7 @@ def visualize(db: Database):
 
 
         # REFERER
+        pprogress("Generating referer ranking")
         referer_ranking = get_referer_ranking(db, whole_timespan_timestamps)
         cleanup_referer_ranking(referer_ranking)
         pdebug("visualize: referer ranking", referer_ranking, lvl=3)
@@ -387,23 +397,26 @@ def visualize(db: Database):
 
         # GEOIP
         if settings["data-collection"]["get_visitor_location"]:
+            pprogress("Generating country ranking")
             country_ranking = get_country_ranking(db, whole_timespan_timestamps, only_human=settings["rankings"]["geoip_only_humans"])
             pdebug("visualize: country ranking:", country_ranking, lvl=3)
-            city_ranking = get_city_ranking(db, whole_timespan_timestamps, add_country_code=settings["rankings"]["city_add_country_code"], only_human=settings["rankings"]["geoip_only_humans"])
-            pdebug("visualize: city ranking:", city_ranking, lvl=3)
             if img_out_dir:
                 fig_referer_ranking = plot_ranking(country_ranking, xlabel="Country", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot-generation"]["size_broad"])
                 savefig(f"ranking_country_{suffix}", fig_referer_ranking)
+            if data_out_dir:
+                export_ranking(f"ranking_country_{suffix}", "country", country_ranking)
+
+            pprogress("Generating city ranking")
+            city_ranking = get_city_ranking(db, whole_timespan_timestamps, add_country_code=settings["rankings"]["city_add_country_code"], only_human=settings["rankings"]["geoip_only_humans"])
+            pdebug("visualize: city ranking:", city_ranking, lvl=3)
+            if img_out_dir:
                 fig_referer_ranking = plot_ranking(city_ranking, xlabel="City", ylabel="Number of visitors", color_settings=color_settings_alternate, figsize=settings["plot-generation"]["size_broad"])
                 savefig(f"ranking_city_{suffix}", fig_referer_ranking)
             if data_out_dir:
-                export_ranking(f"ranking_country_{suffix}", "country", country_ranking)
                 export_ranking(f"ranking_city_{suffix}", "city", city_ranking)
 
-        # os & browser
-        browser_ranking = get_browser_ranking(db, whole_timespan_timestamps, only_human=False)
-        browser_ranking = make_ranking_relative(browser_ranking)
-        pdebug("visualize: browser ranking:", browser_ranking, lvl=3)
+        # PLATFORM
+        pprogress("Generating platform ranking")
         platform_ranking = get_platform_ranking(db, whole_timespan_timestamps, only_human=False)
         platform_ranking = make_ranking_relative(platform_ranking)
         pdebug("visualize: platform ranking:", platform_ranking, lvl=3)
@@ -414,6 +427,16 @@ def visualize(db: Database):
             savefig(f"ranking_browser_{suffix}", fig_browser_rating)
         if data_out_dir:
             export_ranking(f"ranking_platform_{suffix}", "platform", platform_ranking)
+
+        # BROWSER
+        pprogress("Generating browser ranking")
+        browser_ranking = get_browser_ranking(db, whole_timespan_timestamps, only_human=False)
+        browser_ranking = make_ranking_relative(browser_ranking)
+        pdebug("visualize: browser ranking:", browser_ranking, lvl=3)
+        if img_out_dir:
+            fig_browser_rating = plot_ranking(browser_ranking, xlabel="Browser", ylabel="Share [%]", color_settings=color_settings_browsers, figsize=settings["plot-generation"]["size_narrow"])
+            savefig(f"ranking_browser_{suffix}", fig_browser_rating)
+        if data_out_dir:
             export_ranking(f"ranking_browser_{suffix}", "browser", browser_ranking)
 
 
@@ -423,6 +446,7 @@ def visualize(db: Database):
     template_html: str|None = settings["html-generation"]["template_html"]
     html_out_path: str|None = settings["html-generation"]["html_out_path"]
     if template_html and html_out_path:
+        pprogress("Generating html")
         pdebug(f"visualize: generating from template '{template_html}' to '{html_out_path}'", lvl=2)
         if not path.isfile(template_html):
             error(f"Invalid template file path: '{template_html}'")
@@ -438,4 +462,4 @@ def visualize(db: Database):
         with open(html_out_path, "w") as file:
             file.write(html)
     else:
-        PDebug(f"visualize: skipping html generation because either template_html or html_out_path is None: template_html='{template_html}', html_out_path='{html_out_path}'", lvl=1)
+        pdebug(f"visualize: skipping html generation because either template_html or html_out_path is None: template_html='{template_html}', html_out_path='{html_out_path}'", lvl=1)
