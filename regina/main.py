@@ -94,6 +94,7 @@ def main():
     # if not isfile(settings["db"]):
     #     create_db(settings["db"], settings["filegroups"], settings["locs_and_dirs"], settings["auto_group_filetypes"])
 
+    pmessage(f"regina version='{version}': server-name='{settings['regina']['server_name']}', database='{db_path}'")
     if args.update_geoip:
         if not path.isfile(args.update_geoip):
             parser.error(f"invalid path to GeoIP database: '{args.update_geoip}'")
@@ -103,15 +104,14 @@ def main():
             db.update_ip_range_id(visitor_id)
 
     if args.collect:
-        pmessage(f"regina version {version} with server-name '{settings['regina']['server_name']}', database '{db_path}' and logfile '{settings['regina']['access_log']}'")
         requests = parse_log(settings['regina']["access_log"])
         request_count, visitors_count, new_visitors_count = db.add_requests(requests)
         if visitors_count > 0: percentage = 100.0*new_visitors_count/visitors_count
-        else: percentage = '--'
-        pmessage(f"Added {request_count} new requests from {visitors_count} different visitors, from which {new_visitors_count} are new ({percentage:2}%)")
+        else: percentage = 0.0
+        pmessage(f"-> from logfile '{settings['regina']['access_log']}':\n\t+ {request_count} new requests\n\t+ {visitors_count} total visitors\n\t+ {new_visitors_count} new visitors ({percentage:.2f}%)")
 
     if args.visualize:
-        pmessage(f"regina version {version} with server-name '{settings['regina']['server_name']}', database '{db_path}'")
+        # pmessage(f"regina version {version} with server-name '{settings['regina']['server_name']}', database '{db_path}'")
         visualize(db)
 
 if __name__ == '__main__':
