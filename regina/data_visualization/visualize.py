@@ -324,6 +324,7 @@ def visualize(db: Database):
     pdebug(f"visualize: total={total}, last_x_days={last_x_days}", lvl=3)
     for suffix, whole_timespan_timestamps, single_date_constraints, single_date_names, single_date_timestamps in todos:
         assert(len(single_date_names) == len(single_date_constraints))
+        pdebug(f"visualize: {suffix} getting request and visitor history", lvl=2)
 
 
         pprogress("Getting statistics")
@@ -424,7 +425,6 @@ def visualize(db: Database):
         pprogress("Generating platform ranking")
         platform_ranking = get_platform_ranking(db, whole_timespan_timestamps, only_human=False)
         platform_ranking = make_ranking_relative(platform_ranking)
-        pdebug("visualize: platform ranking:", platform_ranking, lvl=3)
         if img_out_dir:
             fig_os_rating = plot_ranking(platform_ranking, xlabel="Platform", ylabel="Share [%]", color_settings=color_settings_platforms, figsize=settings["plot-generation"]["size_narrow"])
             savefig(f"ranking_platform_{suffix}", fig_os_rating)
