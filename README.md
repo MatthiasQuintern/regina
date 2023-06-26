@@ -5,7 +5,8 @@
 `regina` is a **python**  <!-- ![python-logo](/resources/img/logos/python.svg "snek make analytics go brr") --> program that generates ***analytics*** for a static webpage serverd with **nginx**.
 `regina` is easy to deploy and privacy respecting: 
   - it collects the data from the nginx logs: no javascript/changes to your website required
-  - data is stored on your device in a **sqlite** database, nothing goes to any cloud
+  - data is stored on your webserver in a **sqlite** database, nothing goes to any cloud
+
 It parses the log and **stores** the important data in an *sqlite* <!-- ![sqlite-logo](/resources/img/logos/sqlite.svg) --> database. 
 It can then create an analytics html page that has lots of useful **plots** and **numbers**.
 
