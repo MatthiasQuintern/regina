@@ -77,3 +77,9 @@ CREATE TABLE IF NOT EXISTS country(
     name        TEXT UNIQUE,
     code        TEXT UNIQUE
 ) STRICT;
+
+-- indexes for rankings
+CREATE INDEX visitors_human_idx ON visitor(is_human);
+CREATE INDEX visitors_ip_range_idx ON visitor(ip_range_id);
+CREATE INDEX visitors_ip_range_human_idx ON visitor(is_human, ip_range_id);
+CREATE INDEX requests_visitor_time_idx ON request(visitor_id, time);
