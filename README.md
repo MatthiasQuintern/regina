@@ -173,10 +173,10 @@ If you are having problems, try setting the `debug_level` in section `debug` of 
 Your sqlite3 version is probably too old. Check with `sqlite3 --version`. `regina` requires 3.37 or higher.  
 Hotfix: Remove all `STRICT`s from `<python-dir>/site-packages/regina/sql/create_db.sql`.
 
-# Cangelog
+# Changelog
 ## 1.1 (2023-05-17)
 - Improved database format: 
-    - put referrer, browser and platform in own table to reduze size of the database
+    - put referrer, browser and platform in own table to reduce size of the database
     - route groups now part of visualization, not data collection
 - Data visualization now uses more sql for improved performance
 - Refactored codebase
