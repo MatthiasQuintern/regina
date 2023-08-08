@@ -7,7 +7,7 @@ from regina.utility.sql_util import sanitize, sql_select, sql_exists, sql_insert
 from regina.utility.utility import pdebug, warning, pmessage
 from regina.utility.globals import user_agent_platforms, user_agent_browsers, settings
 
-months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aut", "Sep", "Oct", "Nov", "Dec"]
+months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 class Request:
     def __init__(self, ip_address="", time_local="", request_type="", request_route="", request_protocol="", status="", bytes_sent="", referer="", user_agent=""):
