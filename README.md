@@ -55,7 +55,7 @@ If you also want to install the man-page and the zsh completion script:
     sudo cp regina.1.man /usr/share/man/man1/regina.1
     sudo gzip /usr/share/man/man1/regina.1
     sudo cp regina/package-data/_regina.compdef.zsh /usr/local/share/zsh/site-functions/_regina
-    sudo chmod +x /usr/share/zsh/site-functions/_regina
+    sudo chmod +x /usr/local/share/zsh/site-functions/_regina
 ```
 
 ## Configuration
